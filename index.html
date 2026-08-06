@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PulseBoard</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="hero">
+        <p class="eyebrow">PulseBoard</p>
+        <h1>Company benchmarks, HubSpot sync, and social collaboration for growth teams.</h1>
+        <p>Explore company profiles, compare success metrics, and collaborate on business challenges with a HubSpot-powered network.</p>
+        <div class="hero-actions">
+          <button class="primary">View sample companies</button>
+          <button class="secondary">See collaboration feed</button>
+        </div>
+      </header>
+
+      <section class="overview-grid">
+        <article class="metric-card">
+          <h2>HubSpot integration</h2>
+          <p>Sync company CRM health, campaign momentum, and deal progress directly into profiles.</p>
+        </article>
+        <article class="metric-card">
+          <h2>Benchmarking</h2>
+          <p>Compare revenue growth, lead velocity, and customer retention across companies.</p>
+        </article>
+        <article class="metric-card">
+          <h2>Collaboration</h2>
+          <p>Post challenges, share advice, and invite community members to support your next milestone.</p>
+        </article>
+      </section>
+
+      <section class="section sync-section">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Automation</p>
+            <h2>HubSpot sync automation</h2>
+          </div>
+          <button id="sync-now-btn" class="primary">Sync now</button>
+        </div>
+        <div class="sync-card">
+          <div class="sync-row">
+            <strong>Sync status</strong>
+            <span id="sync-status">Last synced 5 minutes ago</span>
+          </div>
+          <div class="sync-bar" id="sync-bar">
+            <div class="sync-progress" id="sync-progress"></div>
+          </div>
+          <p class="sync-note">Refreshing HubSpot CRM, campaign, and benchmark signals for selected companies.</p>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Live demo</p>
+            <h2>Compare company success</h2>
+          </div>
+          <div class="select-pair">
+            <label>
+              Company A
+              <select id="company-a"></select>
+            </label>
+            <label>
+              Company B
+              <select id="company-b"></select>
+            </label>
+          </div>
+        </div>
+
+        <div class="compare-grid">
+          <div class="profile-card" id="profile-a"></div>
+          <div class="profile-card" id="profile-b"></div>
+        </div>
+      </section>
+
+      <section class="section rank-section">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Rankings</p>
+            <h2>Performance leaderboard</h2>
+          </div>
+          <div class="select-pair">
+            <label>
+              Rank by
+              <select id="rank-metric">
+                <option value="growth">Revenue growth</option>
+                <option value="retention">Retention</option>
+                <option value="dealVelocity">Deal velocity</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <div class="rank-list" id="rank-list"></div>
+      </section>
+
+      <section class="section vendor-expert-section">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Network</p>
+            <h2>Agents, vendors, and expert reviews</h2>
+          </div>
+        </div>
+        <div class="panel-grid">
+          <div class="vendor-card">
+            <h3>Vendor introductions</h3>
+            <div id="vendor-list"></div>
+          </div>
+          <div class="expert-card">
+            <h3>Expert agent reviews</h3>
+            <div id="review-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section meetings-section">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Meetings</p>
+            <h2>Collaborative sessions</h2>
+          </div>
+          <button id="new-meeting-btn" class="secondary">Schedule a meeting</button>
+        </div>
+        <div class="meeting-list" id="meeting-list"></div>
+      </section>
+
+      <section class="section feed-section">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Collaboration</p>
+            <h2>Company help feed</h2>
+          </div>
+          <button id="new-post-btn" class="secondary">Post a challenge</button>
+        </div>
+
+        <div class="feed" id="collab-feed"></div>
+      </section>
+
+      <section class="section feature-row">
+        <article>
+          <h3>Why companies join</h3>
+          <ul>
+            <li>Share anonymized success metrics to discover growth patterns.</li>
+            <li>Get peer-reviewed advice for marketing, sales, and operations.</li>
+            <li>Use HubSpot data to make benchmarking decisions faster.</li>
+          </ul>
+        </article>
+        <article>
+          <h3>Monetization engines</h3>
+          <ul>
+            <li>Premium analytics subscriptions for deep comparisons.</li>
+            <li>Featured profile placement and sponsored help requests.</li>
+            <li>Paid advisors and HubSpot workflow connectors.</li>
+          </ul>
+        </article>
+      </section>
+    </div>
+
+    <dialog id="post-dialog">
+      <form method="dialog" class="dialog-form">
+        <h3>Share a company challenge</h3>
+        <label>
+          Company name
+          <input id="post-company" type="text" placeholder="e.g. Accelerate AI" />
+        </label>
+        <label>
+          Challenge
+          <textarea id="post-text" rows="4" placeholder="Ask the community for help."></textarea>
+        </label>
+        <menu>
+          <button id="cancel-post" type="reset">Cancel</button>
+          <button id="submit-post" type="button">Submit</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <dialog id="meeting-dialog">
+      <form method="dialog" class="dialog-form">
+        <h3>Schedule a meeting</h3>
+        <label>
+          Company
+          <select id="meeting-company">
+            <option value="Alpha Labs">Alpha Labs</option>
+            <option value="Pulse Commerce">Pulse Commerce</option>
+            <option value="Nova Insights">Nova Insights</option>
+          </select>
+        </label>
+        <label>
+          Topic
+          <input id="meeting-topic" type="text" placeholder="e.g. pipeline sync review" />
+        </label>
+        <label>
+          Date and time
+          <input id="meeting-time" type="datetime-local" />
+        </label>
+        <menu>
+          <button id="cancel-meeting" type="reset">Cancel</button>
+          <button id="submit-meeting" type="button">Add meeting</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <script src="script.js"></script>
+  </body>
+</html>
