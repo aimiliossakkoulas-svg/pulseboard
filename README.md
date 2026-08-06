@@ -1,6 +1,6 @@
 # Snowboard Growth Workspace
 
-A simple personal workspace for tracking snowboard skills, technique issues, and improvement reminders.
+A simple personal workspace for tracking snowboard skills, technique issues, and improvement reminders. This is for pulseboard. 
 
 ## What it includes
 - A place to list the snowboard skills or techniques you want to improve.
