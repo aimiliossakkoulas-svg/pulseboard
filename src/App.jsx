@@ -247,12 +247,21 @@ function App() {
   return (
     <div className="app-shell">
       <header className="hero hero-with-actions">
-        <div>
-          <p className="eyebrow">Company network</p>
-          <h1>Ranked company profiles, selective metric sharing, and marketplace expertise.</h1>
-          <p>Keep HubSpot insights as a core product feature, while giving companies control over which meetings and profile metrics are shared with the network.</p>
+        <div className="hero-copy">
+          <p className="eyebrow">PulseBoard network</p>
+          <h1>Trusted company profiles, expert reviews, and selective performance sharing.</h1>
+          <p>Connect with founders, agents, and vendors in a private business network where visibility is earned and metrics stay permission-based.</p>
+          <div className="hero-actions">
+            <button type="button">Explore profiles</button>
+            <button type="button" className="secondary-action">View marketplace</button>
+          </div>
         </div>
-        <button type="button" className="secondary-action" onClick={handleLogout}>Log out</button>
+        <div className="hero-side-card">
+          <p className="eyebrow">Signed in as</p>
+          <h3>{user.name}</h3>
+          <p>{user.role || 'Founder'}</p>
+          <button type="button" className="secondary-action" onClick={handleLogout}>Log out</button>
+        </div>
       </header>
 
       <section className="panel spotlight">
