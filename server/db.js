@@ -34,6 +34,25 @@ function createMemoryResult(rows) {
   return { rows, rowCount: rows.length };
 }
 
+function isConnectionError(error) {
+  const candidates = [error, error?.cause, ...(error?.errors || [])].filter(Boolean);
+
+  return candidates.some((candidate) => {
+    const code = candidate?.code || candidate?.cause?.code;
+    const message = `${candidate?.message || ''} ${candidate?.cause?.message || ''}`.toLowerCase();
+
+    return (
+      code === 'ECONNREFUSED' ||
+      code === '28P01' ||
+      code === '08001' ||
+      message.includes('econnrefused') ||
+      message.includes('connect econnrefused') ||
+      message.includes('connection terminated') ||
+      message.includes('timeout exceeded')
+    );
+  });
+}
+
 function queryMemory(text, params = []) {
   const normalized = text.trim().toUpperCase();
 
@@ -105,7 +124,7 @@ export async function query(text, params) {
   try {
     return await pool.query(text, params);
   } catch (error) {
-    if (error?.code === 'ECONNREFUSED' || error?.code === '28P01' || error?.code === '08001') {
+    if (isConnectionError(error)) {
       usingMemoryFallback = true;
       return queryMemory(text, params);
     }
