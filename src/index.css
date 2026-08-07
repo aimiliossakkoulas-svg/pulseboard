@@ -16,10 +16,18 @@ body { margin: 0; min-height: 100vh; background: linear-gradient(135deg, #07111f
 button, input, textarea { font: inherit; }
 .app-shell { max-width: 1080px; margin: 0 auto; padding: 40px 20px 60px; }
 .hero { padding: 32px; border-radius: 24px; background: rgba(8, 16, 31, 0.9); border: 1px solid rgba(255,255,255,0.08); margin-bottom: 24px; }
+.hero-with-actions { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
 .eyebrow { color: #66d9ef; text-transform: uppercase; letter-spacing: 0.24em; font-size: 0.78rem; }
 .hero h1 { font-size: clamp(2rem, 4vw, 2.8rem); margin: 0 0 12px; }
 .hero p { color: #adc2d9; max-width: 760px; }
 .panel { background: rgba(13, 24, 45, 0.95); border: 1px solid rgba(255,255,255,0.08); border-radius: 24px; padding: 24px; margin-bottom: 20px; }
+.auth-panel { display: grid; gap: 16px; }
+.auth-toggle { display: flex; gap: 10px; }
+.auth-toggle button { background: rgba(255,255,255,0.08); color: #f4f7fb; }
+.auth-toggle button.active { background: linear-gradient(90deg, #53d8ff, #7ef0c1); color: #07111f; }
+.auth-form { display: grid; gap: 12px; max-width: 520px; }
+.auth-form select { width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); color: #f4f7fb; }
+.auth-message { color: #84f3bf; margin: 0; }
 .spotlight { display: flex; justify-content: space-between; gap: 20px; align-items: center; }
 .spotlight-badges { display: flex; flex-wrap: wrap; gap: 10px; }
 .spotlight-badges span, .pill { display: inline-flex; padding: 8px 12px; border-radius: 999px; background: rgba(255,255,255,0.08); color: #dce7f4; font-size: 0.9rem; }

@@ -97,6 +97,14 @@ function App() {
   const [content, setContent] = useState('');
   const [status, setStatus] = useState('Loading posts...');
   const [companies, setCompanies] = useState(initialCompanies);
+  const [user, setUser] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    const savedUser = window.localStorage.getItem('pulseboard-user');
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
+  const [authMode, setAuthMode] = useState('login');
+  const [authForm, setAuthForm] = useState({ name: '', email: '', password: '', role: 'Founder' });
+  const [authMessage, setAuthMessage] = useState('');
 
   async function loadPosts() {
     try {
@@ -112,6 +120,47 @@ function App() {
   useEffect(() => {
     loadPosts();
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      setAuthor(user.name);
+    }
+  }, [user]);
+
+  async function handleAuthSubmit(event) {
+    event.preventDefault();
+
+    try {
+      const endpoint = authMode === 'login' ? '/api/auth/login' : '/api/auth/signup';
+      const payload = authMode === 'login'
+        ? { email: authForm.email, password: authForm.password }
+        : { name: authForm.name, email: authForm.email, password: authForm.password, role: authForm.role };
+
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Authentication failed');
+      }
+
+      setUser(data.user);
+      window.localStorage.setItem('pulseboard-user', JSON.stringify(data.user));
+      setAuthForm({ name: '', email: '', password: '', role: 'Founder' });
+      setAuthMessage(authMode === 'login' ? `Welcome back, ${data.user.name}` : `Welcome aboard, ${data.user.name}`);
+    } catch (error) {
+      setAuthMessage(error.message);
+    }
+  }
+
+  function handleLogout() {
+    setUser(null);
+    window.localStorage.removeItem('pulseboard-user');
+    setAuthMessage('You have been signed out.');
+  }
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -146,12 +195,64 @@ function App() {
     );
   }
 
+  if (!user) {
+    return (
+      <div className="app-shell">
+        <header className="hero">
+          <p className="eyebrow">Company network</p>
+          <h1>Join the trusted platform for ranked company profiles and selective metric sharing.</h1>
+          <p>Create an account to access the network, join meetings, and share insight with verified peers.</p>
+        </header>
+
+        <section className="panel auth-panel">
+          <div className="auth-toggle">
+            <button type="button" className={authMode === 'login' ? 'active' : ''} onClick={() => setAuthMode('login')}>Sign in</button>
+            <button type="button" className={authMode === 'signup' ? 'active' : ''} onClick={() => setAuthMode('signup')}>Create account</button>
+          </div>
+
+          <form onSubmit={handleAuthSubmit} className="auth-form">
+            {authMode === 'signup' && (
+              <label>
+                Full name
+                <input value={authForm.name} onChange={(event) => setAuthForm({ ...authForm, name: event.target.value })} placeholder="Your company name" />
+              </label>
+            )}
+            <label>
+              Email
+              <input type="email" value={authForm.email} onChange={(event) => setAuthForm({ ...authForm, email: event.target.value })} placeholder="you@company.com" />
+            </label>
+            <label>
+              Password
+              <input type="password" value={authForm.password} onChange={(event) => setAuthForm({ ...authForm, password: event.target.value })} placeholder="Choose a secure password" />
+            </label>
+            {authMode === 'signup' && (
+              <label>
+                Role
+                <select value={authForm.role} onChange={(event) => setAuthForm({ ...authForm, role: event.target.value })}>
+                  <option value="Founder">Founder</option>
+                  <option value="Agent">Agent</option>
+                  <option value="Vendor">Vendor</option>
+                </select>
+              </label>
+            )}
+            <button type="submit">{authMode === 'login' ? 'Sign in' : 'Create account'}</button>
+          </form>
+
+          {authMessage && <p className="auth-message">{authMessage}</p>}
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="app-shell">
-      <header className="hero">
-        <p className="eyebrow">Company network</p>
-        <h1>Ranked company profiles, selective metric sharing, and marketplace expertise.</h1>
-        <p>Keep HubSpot insights as a core product feature, while giving companies control over which meetings and profile metrics are shared with the network.</p>
+      <header className="hero hero-with-actions">
+        <div>
+          <p className="eyebrow">Company network</p>
+          <h1>Ranked company profiles, selective metric sharing, and marketplace expertise.</h1>
+          <p>Keep HubSpot insights as a core product feature, while giving companies control over which meetings and profile metrics are shared with the network.</p>
+        </div>
+        <button type="button" className="secondary-action" onClick={handleLogout}>Log out</button>
       </header>
 
       <section className="panel spotlight">
