@@ -1,17 +1,23 @@
 import express from 'express';
 import cors from 'cors';
-import crypto from 'crypto';
-import { query } from './db.js';
+import {
+  authenticateUser,
+  connectHubspot,
+  createPost,
+  createUser,
+  getCompanies,
+  getFeedItems,
+  getMeetings,
+  getVendors,
+  listPosts,
+  toggleMetricsSharing
+} from './store.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
-
-function hashPassword(password) {
-  return crypto.createHash('sha256').update(password).digest('hex');
-}
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
@@ -25,20 +31,11 @@ app.post('/api/auth/signup', async (req, res) => {
   }
 
   try {
-    const existing = await query('SELECT id FROM users WHERE email = $1', [email]);
-    if (existing.rowCount > 0) {
-      return res.status(409).json({ error: 'A user with that email already exists' });
-    }
-
-    const result = await query(
-      'INSERT INTO users (name, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING id, name, email, role',
-      [name, email, hashPassword(password), role || 'Founder']
-    );
-
-    res.status(201).json({ user: result.rows[0] });
+    const user = await createUser({ name, email, password, role });
+    res.status(201).json({ user });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Failed to create account' });
+    const status = error.statusCode || 500;
+    res.status(status).json({ error: error.message || 'Failed to create account' });
   }
 });
 
@@ -50,24 +47,19 @@ app.post('/api/auth/login', async (req, res) => {
   }
 
   try {
-    const result = await query('SELECT id, name, email, role FROM users WHERE email = $1 AND password_hash = $2', [email, hashPassword(password)]);
-    if (result.rowCount === 0) {
-      return res.status(401).json({ error: 'Invalid email or password' });
-    }
-
-    res.json({ user: result.rows[0] });
+    const user = await authenticateUser({ email, password });
+    res.json({ user });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Failed to sign in' });
+    const status = error.statusCode || 500;
+    res.status(status).json({ error: error.message || 'Failed to sign in' });
   }
 });
 
 app.get('/api/posts', async (req, res) => {
   try {
-    const result = await query('SELECT id, author, content, created_at FROM posts ORDER BY created_at DESC');
-    res.json(result.rows);
+    const posts = await listPosts();
+    res.json(posts);
   } catch (error) {
-    console.error(error);
     res.status(500).json({ error: 'Failed to fetch posts' });
   }
 });
@@ -80,14 +72,69 @@ app.post('/api/posts', async (req, res) => {
   }
 
   try {
-    const result = await query(
-      'INSERT INTO posts (author, content) VALUES ($1, $2) RETURNING id, author, content, created_at',
-      [author, content]
-    );
-    res.status(201).json(result.rows[0]);
+    const post = await createPost({ author, content });
+    res.status(201).json(post);
   } catch (error) {
-    console.error(error);
     res.status(500).json({ error: 'Failed to create post' });
+  }
+});
+
+app.get('/api/companies', async (req, res) => {
+  try {
+    const companies = await getCompanies();
+    res.json(companies);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch companies' });
+  }
+});
+
+app.get('/api/vendors', async (req, res) => {
+  try {
+    const vendors = await getVendors();
+    res.json(vendors);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch vendors' });
+  }
+});
+
+app.get('/api/meetings', async (req, res) => {
+  try {
+    const meetings = await getMeetings();
+    res.json(meetings);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch meetings' });
+  }
+});
+
+app.get('/api/feed', async (req, res) => {
+  try {
+    const items = await getFeedItems();
+    res.json(items);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch feed' });
+  }
+});
+
+app.post('/api/companies/:companyId/share', async (req, res) => {
+  const { companyId } = req.params;
+
+  try {
+    const company = await toggleMetricsSharing(companyId);
+    res.json(company);
+  } catch (error) {
+    res.status(404).json({ error: error.message || 'Company not found' });
+  }
+});
+
+app.post('/api/companies/:companyId/hubspot', async (req, res) => {
+  const { companyId } = req.params;
+  const { portal, owner } = req.body;
+
+  try {
+    const company = await connectHubspot(companyId, { portal, owner });
+    res.json(company);
+  } catch (error) {
+    res.status(404).json({ error: error.message || 'Company not found' });
   }
 });
 
