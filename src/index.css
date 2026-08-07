@@ -80,7 +80,13 @@ button { border: none; border-radius: 999px; padding: 12px 18px; cursor: pointer
 .hubspot-panel ul { margin: 0; padding-left: 18px; color: #dce7f4; }
 .meeting-list { display: grid; gap: 12px; }
 .meeting-card { display: grid; gap: 10px; }
+.meeting-host { color: #66d9ef; margin-top: 4px; }
 .meeting-note { color: #8ea7c0; }
+.advice-list { display: grid; gap: 12px; }
+.advice-card { border-radius: 16px; background: rgba(255,255,255,0.05); padding: 16px; border: 1px solid rgba(255,255,255,0.08); }
+.advice-card h3 { margin: 0 0 6px; }
+.advice-card p { color: #adc2d9; margin: 0 0 8px; }
+.advice-card span { color: #66d9ef; font-size: 0.9rem; }
 .post-card { border-radius: 16px; background: rgba(255,255,255,0.05); padding: 16px; margin-bottom: 12px; }
 .post-meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; color: #88d7ff; }
 .post-card p { margin: 0; color: #e9f2ff; }

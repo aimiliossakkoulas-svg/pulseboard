@@ -86,14 +86,39 @@ const meetings = [
     companyId: 'alpha',
     topic: 'Pipeline review',
     schedule: '2026-08-08 10:00',
-    visibility: 'Shared metrics enabled'
+    visibility: 'Shared metrics enabled',
+    host: 'Mina Chen'
   },
   {
     id: 'm2',
     companyId: 'pulse',
     topic: 'Revenue sync',
     schedule: '2026-08-09 14:30',
-    visibility: 'Private until profile accepts'
+    visibility: 'Private until profile accepts',
+    host: 'Jordan Rivera'
+  },
+  {
+    id: 'm3',
+    companyId: 'nova',
+    topic: 'Growth advisory roundtable',
+    schedule: '2026-08-12 16:00',
+    visibility: 'Open to invited advisors',
+    host: 'Priya Shah'
+  }
+];
+
+const adviceRequests = [
+  {
+    id: 'advice-1',
+    title: 'Need help with retention strategy',
+    author: 'Mina Chen',
+    detail: 'Looking for a founder who has scaled paid onboarding journeys.'
+  },
+  {
+    id: 'advice-2',
+    title: 'Open to reviewing vendor stack',
+    author: 'Jordan Rivera',
+    detail: 'Happy to share notes on CRM and analytics tooling with trusted peers.'
   }
 ];
 
@@ -433,8 +458,8 @@ function App() {
 
       <section className="panel">
         <div className="section-header">
-          <h2>Meetings with selective sharing</h2>
-          <span>Metrics visibility depends on profile acceptance</span>
+          <h2>Meetups and company sessions</h2>
+          <span>Invite trusted peers, experts, and advisors</span>
         </div>
         <div className="meeting-list">
           {meetings.map((meeting) => {
@@ -446,6 +471,7 @@ function App() {
                 <div>
                   <h3>{meeting.topic}</h3>
                   <p>{company?.name} · {meeting.schedule}</p>
+                  <p className="meeting-host">Hosted by {meeting.host}</p>
                 </div>
                 <span className={`pill ${visible ? 'pill-success' : 'pill-neutral'}`}>
                   {visible ? 'Metrics shared' : 'Private'}
@@ -454,6 +480,22 @@ function App() {
               </article>
             );
           })}
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="section-header">
+          <h2>Advice and peer support</h2>
+          <span>Users and company profiles can request guidance</span>
+        </div>
+        <div className="advice-list">
+          {adviceRequests.map((request) => (
+            <article key={request.id} className="advice-card">
+              <h3>{request.title}</h3>
+              <p>{request.detail}</p>
+              <span>Requested by {request.author}</span>
+            </article>
+          ))}
         </div>
       </section>
 
