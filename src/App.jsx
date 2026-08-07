@@ -198,11 +198,32 @@ function App() {
   if (!user) {
     return (
       <div className="app-shell">
-        <header className="hero">
-          <p className="eyebrow">Company network</p>
-          <h1>Join the trusted platform for ranked company profiles and selective metric sharing.</h1>
-          <p>Create an account to access the network, join meetings, and share insight with verified peers.</p>
+        <header className="hero hero-preview">
+          <div className="hero-copy">
+            <p className="eyebrow">PulseBoard network</p>
+            <h1>Explore a smarter business network before you sign in.</h1>
+            <p>Browse ranked company profiles, selective metric sharing, expert reviews, and marketplace vendor opportunities. Create an account when you’re ready to join the conversation.</p>
+            <div className="hero-actions">
+              <button type="button" onClick={() => setAuthMode('signup')}>Create account</button>
+              <button type="button" className="secondary-action" onClick={() => setAuthMode('login')}>Sign in</button>
+            </div>
+          </div>
         </header>
+
+        <section className="panel preview-grid">
+          <div className="preview-card">
+            <h3>Ranked company profiles</h3>
+            <p>See growth, retention, pipeline health, and HubSpot activity in one view.</p>
+          </div>
+          <div className="preview-card">
+            <h3>Selective sharing</h3>
+            <p>Companies control when meetings and metrics become visible to the wider network.</p>
+          </div>
+          <div className="preview-card">
+            <h3>Marketplace access</h3>
+            <p>Discover vendors and agents through premium-friendly partner placement.</p>
+          </div>
+        </section>
 
         <section className="panel auth-panel">
           <div className="auth-toggle">
