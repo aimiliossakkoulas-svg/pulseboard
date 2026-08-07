@@ -12,6 +12,8 @@ const initialCompanies = [
     retention: '91%',
     pipeline: '$2.4M',
     hubspotStatus: 'Connected',
+    rating: '9.4/10',
+    review: 'Trusted by 12 agents',
     metricsSharing: 'accepted',
     hubspotMetrics: {
       deals: '18 active',
@@ -28,6 +30,8 @@ const initialCompanies = [
     retention: '87%',
     pipeline: '$1.1M',
     hubspotStatus: 'Connected',
+    rating: '8.7/10',
+    review: 'Selective visibility',
     metricsSharing: 'private',
     hubspotMetrics: {
       deals: '9 active',
@@ -44,6 +48,8 @@ const initialCompanies = [
     retention: '94%',
     pipeline: '$3.2M',
     hubspotStatus: 'Preview',
+    rating: '9.8/10',
+    review: 'Partner recommended',
     metricsSharing: 'accepted',
     hubspotMetrics: {
       deals: '22 active',
@@ -89,6 +95,33 @@ const meetings = [
     schedule: '2026-08-09 14:30',
     visibility: 'Private until profile accepts'
   }
+];
+
+const previewFeed = [
+  {
+    id: 'feed-1',
+    author: 'Mina Chen',
+    detail: 'Alpha Labs shared a new pipeline review with approved partners.',
+    time: '12m ago'
+  },
+  {
+    id: 'feed-2',
+    author: 'Jordan Rivera',
+    detail: 'Nova Insights published a benchmark trend for growth-stage teams.',
+    time: '34m ago'
+  },
+  {
+    id: 'feed-3',
+    author: 'Priya Shah',
+    detail: 'Pulse Commerce opened a selective metrics window for invited vendors.',
+    time: '1h ago'
+  }
+];
+
+const heroStats = [
+  { label: 'Profiles', value: '128+' },
+  { label: 'Active meetings', value: '42' },
+  { label: 'Partner agents', value: '19' }
 ];
 
 function App() {
@@ -207,6 +240,14 @@ function App() {
               <button type="button" onClick={() => setAuthMode('signup')}>Create account</button>
               <button type="button" className="secondary-action" onClick={() => setAuthMode('login')}>Sign in</button>
             </div>
+            <div className="hero-stats">
+              {heroStats.map((stat) => (
+                <div key={stat.label} className="stat-pill">
+                  <strong>{stat.value}</strong>
+                  <span>{stat.label}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </header>
 
@@ -222,6 +263,25 @@ function App() {
           <div className="preview-card">
             <h3>Marketplace access</h3>
             <p>Discover vendors and agents through premium-friendly partner placement.</p>
+          </div>
+        </section>
+
+        <section className="panel preview-shell">
+          <div className="preview-snapshot">
+            <p className="eyebrow">Network pulse</p>
+            <h3>Trusted signal, selective visibility, and premium partner discovery.</h3>
+            <p>Members can review performance without exposing sensitive metrics until the company profile opts in.</p>
+          </div>
+          <div className="preview-feed">
+            {previewFeed.map((item) => (
+              <article key={item.id} className="mini-feed-item">
+                <div>
+                  <strong>{item.author}</strong>
+                  <p>{item.detail}</p>
+                </div>
+                <span>{item.time}</span>
+              </article>
+            ))}
           </div>
         </section>
 
@@ -276,6 +336,14 @@ function App() {
             <button type="button">Explore profiles</button>
             <button type="button" className="secondary-action">View marketplace</button>
           </div>
+          <div className="hero-stats">
+            {heroStats.map((stat) => (
+              <div key={stat.label} className="stat-pill">
+                <strong>{stat.value}</strong>
+                <span>{stat.label}</span>
+              </div>
+            ))}
+          </div>
         </div>
         <div className="hero-side-card">
           <p className="eyebrow">Signed in as</p>
@@ -314,9 +382,16 @@ function App() {
                     <h3>{company.name}</h3>
                     <p>{company.summary}</p>
                   </div>
-                  <span className={`pill ${canShare ? 'pill-success' : 'pill-neutral'}`}>
-                    {canShare ? 'Metrics shared' : 'Private'}
-                  </span>
+                  <div className="company-badges">
+                    <span className="pill">★ {company.rating}</span>
+                    <span className={`pill ${canShare ? 'pill-success' : 'pill-neutral'}`}>
+                      {canShare ? 'Metrics shared' : 'Private'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="review-row">
+                  <span className="review-pill">{company.review}</span>
                 </div>
 
                 <div className="stats-grid">
