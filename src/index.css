@@ -1,0 +1,57 @@
+:root {
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #f4f7fb;
+  background: #07111f;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; background: linear-gradient(135deg, #07111f 0%, #12243f 100%); }
+#root { min-height: 100vh; }
+button, input, textarea { font: inherit; }
+.app-shell { max-width: 1080px; margin: 0 auto; padding: 40px 20px 60px; }
+.hero { padding: 32px; border-radius: 24px; background: rgba(8, 16, 31, 0.9); border: 1px solid rgba(255,255,255,0.08); margin-bottom: 24px; }
+.eyebrow { color: #66d9ef; text-transform: uppercase; letter-spacing: 0.24em; font-size: 0.78rem; }
+.hero h1 { font-size: clamp(2rem, 4vw, 2.8rem); margin: 0 0 12px; }
+.hero p { color: #adc2d9; max-width: 760px; }
+.panel { background: rgba(13, 24, 45, 0.95); border: 1px solid rgba(255,255,255,0.08); border-radius: 24px; padding: 24px; margin-bottom: 20px; }
+.spotlight { display: flex; justify-content: space-between; gap: 20px; align-items: center; }
+.spotlight-badges { display: flex; flex-wrap: wrap; gap: 10px; }
+.spotlight-badges span, .pill { display: inline-flex; padding: 8px 12px; border-radius: 999px; background: rgba(255,255,255,0.08); color: #dce7f4; font-size: 0.9rem; }
+.pill-success { background: rgba(92, 240, 173, 0.16); color: #84f3bf; }
+.pill-neutral { background: rgba(255,255,255,0.08); color: #dce7f4; }
+.composer form { display: flex; flex-direction: column; gap: 14px; }
+label { display: flex; flex-direction: column; gap: 8px; color: #dce7f4; }
+input, textarea { width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); color: #f4f7fb; }
+button { border: none; border-radius: 999px; padding: 12px 18px; cursor: pointer; background: linear-gradient(90deg, #53d8ff, #7ef0c1); color: #07111f; font-weight: 700; }
+.secondary-action { background: rgba(255,255,255,0.08); color: #f4f7fb; margin-top: 12px; }
+.section-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
+.section-header span { color: #8ea7c0; }
+.company-grid, .vendor-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.company-card, .meeting-card, .vendor-card { border-radius: 18px; background: rgba(255,255,255,0.05); padding: 16px; }
+.company-card-top, .vendor-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.company-card h3, .meeting-card h3, .vendor-card h3 { margin: 0 0 6px; }
+.company-card p, .meeting-card p, .vendor-card p { margin: 0; color: #adc2d9; }
+.stats-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 12px 0; }
+.stats-grid div { background: rgba(255,255,255,0.04); border-radius: 12px; padding: 10px; }
+.stats-grid strong { display: block; color: #6fd7f2; margin-bottom: 4px; font-size: 0.82rem; }
+.stats-grid span { color: #f4f7fb; }
+.hubspot-panel { background: rgba(92, 240, 173, 0.1); border: 1px solid rgba(92, 240, 173, 0.2); border-radius: 14px; padding: 12px; margin-top: 10px; }
+.hubspot-panel h4 { margin: 0 0 8px; color: #84f3bf; }
+.hubspot-panel ul { margin: 0; padding-left: 18px; color: #dce7f4; }
+.meeting-list { display: grid; gap: 12px; }
+.meeting-card { display: grid; gap: 10px; }
+.meeting-note { color: #8ea7c0; }
+.post-card { border-radius: 16px; background: rgba(255,255,255,0.05); padding: 16px; margin-bottom: 12px; }
+.post-meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; color: #88d7ff; }
+.post-card p { margin: 0; color: #e9f2ff; }
+
+@media (max-width: 900px) {
+  .company-grid, .vendor-grid { grid-template-columns: 1fr; }
+  .spotlight { flex-direction: column; align-items: flex-start; }
+}
