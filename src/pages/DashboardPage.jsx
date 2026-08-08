@@ -30,7 +30,7 @@ function DashboardPage({
           <h1>Trusted company profiles, expert reviews, and selective performance sharing.</h1>
           <p>Connect with founders, agents, and vendors in a private business network where visibility is earned and metrics stay permission-based.</p>
           <div className="hero-actions">
-            <button type="button" onClick={() => setActiveSection('profiles')}>Explore profiles</button>
+            <button type="button" onClick={() => { setActiveSection('profiles'); document.getElementById('profiles-section')?.scrollIntoView({ behavior: 'smooth' }); }}>Explore profiles</button>
             <Link to="/onboarding" className="action-link">Onboard company</Link>
             <Link to="/marketplace" className="action-link secondary-action" onClick={() => setActiveSection('marketplace')}>View marketplace</Link>
           </div>
@@ -66,7 +66,7 @@ function DashboardPage({
         </div>
       </section>
 
-      <section className={`panel ${activeSection === 'profiles' ? 'active-section' : ''}`}>
+      <section id="profiles-section" className={`panel ${activeSection === 'profiles' ? 'active-section' : ''}`}>
         <div className="section-header">
           <h2>Company profiles</h2>
           <span>Profile acceptance controls metric visibility</span>
