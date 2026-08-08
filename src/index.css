@@ -1580,6 +1580,209 @@ button:hover,
   border-color: rgba(83, 216, 255, 0.32);
 }
 
+/* Company search bar */
+.search-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.company-search-input {
+  flex: 1;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 14px;
+  color: var(--text-main);
+  padding: 11px 16px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  transition: border-color 160ms ease;
+}
+
+.company-search-input:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+}
+
+.company-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.search-result-count {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.search-empty {
+  color: var(--text-muted);
+  grid-column: 1 / -1;
+  padding: 20px 0;
+}
+
+/* Social company cards */
+.social-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+}
+
+.social-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.social-card-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-mint));
+  color: #07111f;
+  font-weight: 800;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.social-card-identity {
+  flex: 1;
+  min-width: 0;
+}
+
+.social-card-identity h3 {
+  margin: 0 0 2px;
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 1rem;
+}
+
+.social-card-sector {
+  font-size: 0.78rem;
+  color: var(--accent-blue);
+  font-weight: 600;
+}
+
+.social-card-rank {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.rank-number {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
+.rank-tier-pill {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+.tier-high {
+  background: rgba(142, 242, 199, 0.12);
+  color: var(--accent-mint);
+  border: 1px solid rgba(142, 242, 199, 0.22);
+}
+
+.tier-emerging {
+  background: rgba(255,255,255,0.08);
+  color: var(--text-muted);
+  border: 1px solid rgba(255,255,255,0.12);
+}
+
+.social-card-summary {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.55;
+}
+
+.social-card-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.social-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 8px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  text-align: center;
+}
+
+.social-metric strong {
+  font-size: 0.88rem;
+  color: var(--text-main);
+}
+
+.social-metric span {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.social-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255,255,255,0.07);
+}
+
+.sharing-pill {
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.social-card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.card-action-btn {
+  font-size: 0.78rem;
+  padding: 6px 12px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 140ms ease;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.card-action-btn:hover {
+  background: rgba(255,255,255,0.12);
+  color: var(--text-main);
+}
+
+.card-action-primary {
+  background: rgba(83, 216, 255, 0.12);
+  border-color: rgba(83, 216, 255, 0.24);
+  color: var(--accent-blue);
+}
+
+.card-action-primary:hover {
+  background: rgba(83, 216, 255, 0.2);
+  color: var(--accent-blue);
+}
+
 /* Suggested company connections */
 .suggested-grid {
   display: grid;

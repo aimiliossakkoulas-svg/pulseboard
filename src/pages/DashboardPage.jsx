@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 function DashboardPage({
@@ -21,6 +21,13 @@ function DashboardPage({
   recommendedVendors,
   introRequests,
 }) {
+  const [search, setSearch] = useState('');
+
+  const filteredCompanies = companies.filter((c) =>
+    !search.trim() ||
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    c.sector.toLowerCase().includes(search.toLowerCase())
+  );
   return (
     <div className="app-shell">
       <a className="skip-link" href="#dashboard-main-content">Skip to main content</a>
@@ -68,76 +75,74 @@ function DashboardPage({
 
       <section id="profiles-section" className={`panel ${activeSection === 'profiles' ? 'active-section' : ''}`}>
         <div className="section-header">
-          <h2>Company profiles</h2>
-          <span>Profile acceptance controls metric visibility</span>
+          <div>
+            <p className="eyebrow">Network</p>
+            <h2 className="section-title">Company profiles</h2>
+          </div>
+          <span className="section-meta">Ranked by verified signal</span>
+        </div>
+        <div className="search-bar-row">
+          <input
+            className="company-search-input"
+            type="search"
+            placeholder="Search by company name or sector…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            aria-label="Search companies"
+          />
+          {search && (
+            <span className="search-result-count">{filteredCompanies.length} result{filteredCompanies.length !== 1 ? 's' : ''}</span>
+          )}
         </div>
         <div className="company-grid">
-          {companies.map((company) => {
+          {filteredCompanies.length === 0 && (
+            <p className="search-empty">No companies match &ldquo;{search}&rdquo;</p>
+          )}
+          {filteredCompanies.map((company) => {
             const canShare = company.metricsSharing === 'accepted';
-
             return (
-              <article key={company.id} className="company-card">
-                <div className="company-card-top">
-                  <div>
+              <article key={company.id} className="company-card social-card">
+                <div className="social-card-header">
+                  <div className="social-card-avatar">{company.name.charAt(0)}</div>
+                  <div className="social-card-identity">
                     <h3>{company.name}</h3>
-                    <p>{company.summary}</p>
+                    <span className="social-card-sector">{company.sector}</span>
                   </div>
-                  <div className="company-badges">
-                    <span className="pill">#{company.rank?.position || '-'} · {company.rank?.tier || 'Signal'}</span>
-                    <span className="pill">★ {company.rating}</span>
-                    <span className={`pill ${canShare ? 'pill-success' : 'pill-neutral'}`}>
-                      {canShare ? 'Metrics shared' : 'Private'}
-                    </span>
+                  <div className="social-card-rank">
+                    <span className="rank-number">#{company.rank?.position || '–'}</span>
+                    <span className={`rank-tier-pill ${company.rank?.tier === 'High signal' ? 'tier-high' : 'tier-emerging'}`}>{company.rank?.tier || 'Signal'}</span>
                   </div>
                 </div>
-
-                {company.rank && (
-                  <div className="ranking-block">
-                    <strong>Rank score: {company.rank.score}</strong>
-                    <ul>
-                      {company.rank.reasons.map((reason) => (
-                        <li key={reason}>{reason}</li>
-                      ))}
-                    </ul>
+                <p className="social-card-summary">{company.summary}</p>
+                <div className="social-card-metrics">
+                  <div className="social-metric">
+                    <strong>{company.growth}</strong>
+                    <span>Growth</span>
                   </div>
-                )}
-
-                <div className="review-row">
-                  <span className="review-pill">{company.review}</span>
-                </div>
-
-                <div className="stats-grid">
-                  <div>
-                    <strong>Growth</strong>
-                    <span>{company.growth}</span>
+                  <div className="social-metric">
+                    <strong>{company.retention}</strong>
+                    <span>Retention</span>
                   </div>
-                  <div>
-                    <strong>Retention</strong>
-                    <span>{company.retention}</span>
+                  <div className="social-metric">
+                    <strong>{company.pipeline}</strong>
+                    <span>Pipeline</span>
                   </div>
-                  <div>
-                    <strong>Pipeline</strong>
-                    <span>{company.pipeline}</span>
-                  </div>
-                  <div>
-                    <strong>HubSpot</strong>
-                    <span>{company.hubspotStatus}</span>
+                  <div className="social-metric">
+                    <strong>★ {company.rating}</strong>
+                    <span>Rating</span>
                   </div>
                 </div>
-
-                <div className="hubspot-panel">
-                  <h4>HubSpot signal</h4>
-                  <ul>
-                    <li>Deals: {company.hubspotMetrics.deals}</li>
-                    <li>Campaigns: {company.hubspotMetrics.campaigns}</li>
-                    <li>Meetings: {company.hubspotMetrics.meetings}</li>
-                  </ul>
+                <div className="social-card-footer">
+                  <span className={`sharing-pill ${canShare ? 'pill-success' : 'pill-neutral'}`}>
+                    {canShare ? '⬤ Metrics shared' : '⬤ Private'}
+                  </span>
+                  <div className="social-card-actions">
+                    <button type="button" className="card-action-btn" onClick={() => toggleMetricsSharing(company.id)}>
+                      {canShare ? 'Restrict' : 'Share metrics'}
+                    </button>
+                    <Link to={`/company/${company.id}`} className="card-action-btn card-action-primary">View profile</Link>
+                  </div>
                 </div>
-
-                <button type="button" className="secondary-action" aria-label={`${canShare ? 'Restrict' : 'Allow'} metrics sharing for ${company.name}`} onClick={() => toggleMetricsSharing(company.id)}>
-                  {canShare ? 'Restrict sharing' : 'Allow metrics sharing'}
-                </button>
-                <Link to={`/company/${company.id}`} className="action-link company-link">View profile details</Link>
               </article>
             );
           })}
