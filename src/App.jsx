@@ -418,6 +418,7 @@ function App() {
             user={user}
             handleLogout={handleLogout}
             apiUrl={API_URL}
+            token={token}
           />
         }
       />

@@ -94,6 +94,337 @@ select {
   padding: 46px;
 }
 
+/* Landing hero — premium full-width */
+.landing-hero {
+  padding: 72px 48px 0;
+  min-height: 480px;
+  position: relative;
+  overflow: hidden;
+  border-radius: 28px;
+  margin-bottom: 20px;
+  background: linear-gradient(135deg, rgba(6, 13, 27, 0.98) 60%, rgba(15, 36, 68, 0.9));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.landing-hero::before {
+  content: '';
+  position: absolute;
+  top: -120px;
+  right: -80px;
+  width: 480px;
+  height: 480px;
+  background: radial-gradient(circle, rgba(83, 216, 255, 0.14), transparent 65%);
+  pointer-events: none;
+}
+
+.landing-hero::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 30%;
+  width: 340px;
+  height: 220px;
+  background: radial-gradient(circle, rgba(142, 242, 199, 0.08), transparent 70%);
+  pointer-events: none;
+}
+
+.landing-hero-inner {
+  max-width: 760px;
+  position: relative;
+  z-index: 1;
+}
+
+.landing-h1 {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: clamp(2.4rem, 5.5vw, 3.8rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+  margin: 12px 0 20px;
+}
+
+.landing-h1-accent {
+  background: linear-gradient(90deg, var(--accent-blue), var(--accent-mint));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.landing-subhead {
+  font-size: 1.05rem;
+  color: var(--text-muted);
+  max-width: 600px;
+  line-height: 1.65;
+  margin-bottom: 28px;
+}
+
+.landing-cta-row {
+  gap: 12px;
+  margin-top: 0;
+}
+
+.cta-primary {
+  background: linear-gradient(90deg, var(--accent-blue), var(--accent-mint));
+  color: #07111f;
+  font-weight: 700;
+  border: none;
+  padding: 13px 28px;
+  border-radius: 14px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.cta-primary:hover {
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+
+.cta-ghost {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-main);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  padding: 13px 28px;
+  border-radius: 14px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.cta-ghost:hover {
+  background: rgba(255, 255, 255, 0.13);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.landing-stats-bar {
+  display: flex;
+  gap: 0;
+  margin-top: 52px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  position: relative;
+  z-index: 1;
+}
+
+.landing-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 22px 24px;
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.landing-stat:last-child {
+  border-right: none;
+}
+
+.landing-stat strong {
+  font-size: 1.5rem;
+  color: var(--accent-mint);
+  font-family: 'Fraunces', Georgia, serif;
+}
+
+.landing-stat span {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+/* Section headings */
+.section-title {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 1.4rem;
+  margin: 4px 0 0;
+  font-weight: 700;
+}
+
+.section-meta {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  align-self: flex-end;
+}
+
+/* Landing company preview cards */
+.lp-company-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.lp-company-card {
+  border-radius: 20px;
+  background: linear-gradient(145deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03));
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  padding: 20px;
+  transition: border-color 180ms ease, transform 180ms ease;
+}
+
+.lp-company-card:hover {
+  border-color: rgba(83, 216, 255, 0.35);
+  transform: translateY(-2px);
+}
+
+.lp-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.lp-rank {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--accent-blue);
+  letter-spacing: 0.04em;
+}
+
+.lp-tier-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(142, 242, 199, 0.12);
+  color: var(--accent-mint);
+  border: 1px solid rgba(142, 242, 199, 0.22);
+}
+
+.lp-company-name {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 1.05rem;
+  margin: 0 0 4px;
+}
+
+.lp-sector {
+  color: var(--text-muted);
+  font-size: 0.83rem;
+  margin: 0 0 16px;
+}
+
+.lp-metrics-row {
+  display: flex;
+  gap: 10px;
+}
+
+.lp-metric {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.lp-metric-value {
+  font-size: 0.97rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.lp-metric-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* Membership tiers */
+.membership-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.membership-card {
+  border-radius: 20px;
+  padding: 24px;
+  background: linear-gradient(145deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.membership-card-highlight {
+  background: linear-gradient(145deg, rgba(83,216,255,0.1), rgba(142,242,199,0.06));
+  border-color: rgba(83, 216, 255, 0.32);
+  box-shadow: 0 0 40px rgba(83, 216, 255, 0.1);
+}
+
+.membership-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.membership-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  border-radius: 999px;
+}
+
+.tier-free {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-muted);
+  border: 1px solid rgba(255,255,255,0.14);
+}
+
+.tier-growth {
+  background: rgba(83, 216, 255, 0.16);
+  color: var(--accent-blue);
+  border: 1px solid rgba(83, 216, 255, 0.3);
+}
+
+.tier-partner {
+  background: rgba(142, 242, 199, 0.14);
+  color: var(--accent-mint);
+  border: 1px solid rgba(142, 242, 199, 0.28);
+}
+
+.membership-price {
+  font-size: 1.1rem;
+  color: var(--text-main);
+}
+
+.membership-desc {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  margin: 0;
+  line-height: 1.55;
+}
+
+.membership-features {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.membership-features li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.feature-check {
+  color: var(--accent-mint);
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.membership-cta {
+  width: 100%;
+  margin-top: auto;
+}
+
 .hero-with-actions {
   display: flex;
   justify-content: space-between;
@@ -830,6 +1161,101 @@ button:hover,
   .final-cta {
     flex-direction: column;
     align-items: flex-start;
+  }
+}
+
+/* Metrics upload form */
+.metrics-upload-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.metrics-source-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.metrics-source-row label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.metrics-source-row select {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  color: var(--text-main);
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.metrics-fields-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.metric-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.metric-field label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.metric-field input {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: var(--text-main);
+  padding: 9px 12px;
+  font-size: 0.95rem;
+  transition: border-color 160ms ease;
+}
+
+.metric-field input:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+}
+
+.error-note {
+  color: var(--danger);
+  font-size: 0.875rem;
+}
+
+.success-note {
+  color: var(--accent-mint);
+  font-size: 0.875rem;
+}
+
+@media (max-width: 760px) {
+  .lp-company-grid,
+  .membership-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-hero {
+    padding: 44px 24px 0;
+  }
+
+  .landing-stats-bar {
+    flex-wrap: wrap;
+    margin-top: 32px;
+  }
+
+  .landing-stat {
+    flex: 1 1 calc(50% - 1px);
+  }
+
+  .metrics-fields-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

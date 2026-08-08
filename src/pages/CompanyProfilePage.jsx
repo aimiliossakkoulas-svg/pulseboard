@@ -1,11 +1,27 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
-function CompanyProfilePage({ user, handleLogout, apiUrl }) {
+const METRIC_KEYS = [
+  { key: 'growth_percent', label: 'Growth (%)', placeholder: '42' },
+  { key: 'retention_percent', label: 'Retention (%)', placeholder: '88' },
+  { key: 'pipeline_millions', label: 'Pipeline ($M)', placeholder: '2.4' },
+  { key: 'deals_active', label: 'Active deals', placeholder: '12' },
+  { key: 'campaigns_live', label: 'Live campaigns', placeholder: '5' },
+  { key: 'meetings_quarter', label: 'Meetings this quarter', placeholder: '18' },
+];
+
+const EMPTY_METRICS = Object.fromEntries(METRIC_KEYS.map(({ key }) => [key, '']));
+
+function CompanyProfilePage({ user, handleLogout, apiUrl, token }) {
   const { companyId } = useParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [profile, setProfile] = useState(null);
+
+  const [metricValues, setMetricValues] = useState(EMPTY_METRICS);
+  const [sourceType, setSourceType] = useState('manual');
+  const [metricsSubmitting, setMetricsSubmitting] = useState(false);
+  const [metricsMessage, setMetricsMessage] = useState({ type: '', text: '' });
 
   useEffect(() => {
     let active = true;
@@ -42,6 +58,45 @@ function CompanyProfilePage({ user, handleLogout, apiUrl }) {
       active = false;
     };
   }, [apiUrl, companyId]);
+
+  async function handleMetricsSubmit(e) {
+    e.preventDefault();
+    setMetricsMessage({ type: '', text: '' });
+
+    const metrics = METRIC_KEYS
+      .filter(({ key }) => metricValues[key] !== '')
+      .map(({ key }) => ({ metricKey: key, metricValue: Number(metricValues[key]) }));
+
+    if (!metrics.length) {
+      setMetricsMessage({ type: 'error', text: 'Enter at least one metric value.' });
+      return;
+    }
+
+    setMetricsSubmitting(true);
+    try {
+      const res = await fetch(`${apiUrl}/api/companies/${companyId}/metrics/${sourceType}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          verificationStatus: 'self-reported',
+          confidenceScore: 0.7,
+          metrics,
+          capturedAt: new Date().toISOString(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to submit metrics');
+      setMetricValues(EMPTY_METRICS);
+      setMetricsMessage({ type: 'success', text: 'Metrics submitted and ranking updated.' });
+    } catch (err) {
+      setMetricsMessage({ type: 'error', text: err.message });
+    } finally {
+      setMetricsSubmitting(false);
+    }
+  }
 
   return (
     <div className="app-shell">
@@ -169,6 +224,50 @@ function CompanyProfilePage({ user, handleLogout, apiUrl }) {
                   </article>
                 ))}
               </div>
+            </section>
+            <section className="panel">
+              <div className="section-header">
+                <h2>Upload metrics</h2>
+                <span>Submitted data updates the ranking score immediately</span>
+              </div>
+              <form className="metrics-upload-form" onSubmit={handleMetricsSubmit} noValidate>
+                <div className="metrics-source-row">
+                  <label htmlFor="sourceType">Source</label>
+                  <select
+                    id="sourceType"
+                    value={sourceType}
+                    onChange={(e) => setSourceType(e.target.value)}
+                  >
+                    <option value="manual">Manual</option>
+                    <option value="csv">CSV</option>
+                    <option value="quickbooks">QuickBooks</option>
+                    <option value="hubspot">HubSpot</option>
+                    <option value="stripe">Stripe</option>
+                  </select>
+                </div>
+                <div className="metrics-fields-grid">
+                  {METRIC_KEYS.map(({ key, label, placeholder }) => (
+                    <div key={key} className="metric-field">
+                      <label htmlFor={key}>{label}</label>
+                      <input
+                        id={key}
+                        type="number"
+                        placeholder={placeholder}
+                        value={metricValues[key]}
+                        onChange={(e) => setMetricValues((prev) => ({ ...prev, [key]: e.target.value }))}
+                      />
+                    </div>
+                  ))}
+                </div>
+                {metricsMessage.text && (
+                  <p className={metricsMessage.type === 'error' ? 'error-note' : 'success-note'}>
+                    {metricsMessage.text}
+                  </p>
+                )}
+                <button type="submit" disabled={metricsSubmitting}>
+                  {metricsSubmitting ? 'Submitting…' : 'Submit metrics'}
+                </button>
+              </form>
             </section>
           </>
         )}
