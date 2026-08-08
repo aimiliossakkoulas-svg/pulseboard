@@ -1164,6 +1164,275 @@ button:hover,
   }
 }
 
+/* Marketplace list + sidebar layout */
+.mp-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.mp-sidebar {
+  background: var(--surface);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  position: sticky;
+  top: 20px;
+}
+
+.mp-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mp-filter-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin: 0 0 4px;
+}
+
+.mp-filter-btn {
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 7px 10px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.mp-filter-btn:hover {
+  background: rgba(255,255,255,0.06);
+  color: var(--text-main);
+}
+
+.mp-filter-active {
+  background: rgba(83, 216, 255, 0.12) !important;
+  color: var(--accent-blue) !important;
+  border-color: rgba(83, 216, 255, 0.22) !important;
+}
+
+.mp-filter-count {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.mp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mp-list-row {
+  background: linear-gradient(145deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03));
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 18px;
+  padding: 18px 20px;
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  transition: border-color 160ms ease;
+}
+
+.mp-list-row:hover {
+  border-color: rgba(83, 216, 255, 0.25);
+}
+
+.mp-list-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mp-list-identity {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.mp-list-name {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 1rem;
+  margin: 0 0 3px;
+}
+
+.mp-list-desc {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.mp-impact-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(142, 242, 199, 0.07);
+  border: 1px solid rgba(142, 242, 199, 0.14);
+  width: fit-content;
+}
+
+.mp-list-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+
+.mp-request-btn {
+  white-space: nowrap;
+  padding: 10px 20px;
+  font-size: 0.875rem;
+}
+
+.mp-pending-badge {
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(142, 242, 199, 0.14);
+  color: var(--accent-mint);
+  border: 1px solid rgba(142, 242, 199, 0.24);
+  white-space: nowrap;
+}
+
+.mp-cancel-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  cursor: pointer;
+  padding: 2px 4px;
+  text-decoration: underline;
+}
+
+.mp-cancel-btn:hover {
+  color: var(--danger);
+}
+
+.mp-request-form {
+  width: 100%;
+  flex-basis: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+.mp-message-input {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 12px;
+  color: var(--text-main);
+  padding: 10px 14px;
+  font-size: 0.9rem;
+  resize: vertical;
+  font-family: inherit;
+  transition: border-color 140ms ease;
+}
+
+.mp-message-input:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+}
+
+.mp-form-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.mp-empty {
+  color: var(--text-muted);
+  padding: 20px;
+  text-align: center;
+}
+
+/* Intro requests panel on dashboard */
+.intro-requests-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.intro-request-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.intro-request-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.intro-request-info strong {
+  font-size: 0.9rem;
+}
+
+.intro-request-message {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  margin: 0;
+  font-style: italic;
+}
+
+.intro-request-date {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.intro-status-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  text-transform: capitalize;
+  flex-shrink: 0;
+}
+
+.intro-status-pending {
+  background: rgba(83, 216, 255, 0.12);
+  color: var(--accent-blue);
+  border: 1px solid rgba(83, 216, 255, 0.22);
+}
+
+.intro-status-accepted {
+  background: rgba(142, 242, 199, 0.12);
+  color: var(--accent-mint);
+  border: 1px solid rgba(142, 242, 199, 0.22);
+}
+
+.intro-status-declined {
+  background: rgba(255, 173, 173, 0.1);
+  color: var(--danger);
+  border: 1px solid rgba(255, 173, 173, 0.2);
+}
+
 /* Marketplace vendor cards with pipeline impact */
 .mp-context-bar {
   display: flex;
@@ -1477,6 +1746,14 @@ button:hover,
   .mp-vendor-grid,
   .suggested-grid {
     grid-template-columns: 1fr;
+  }
+
+  .mp-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .mp-sidebar {
+    position: static;
   }
 
   .mp-context-bar {

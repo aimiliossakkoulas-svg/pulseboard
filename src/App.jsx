@@ -47,6 +47,7 @@ function App() {
   const [authForm, setAuthForm] = useState({ name: '', email: '', password: '', role: 'Founder' });
   const [authMessage, setAuthMessage] = useState('');
   const [activeSection, setActiveSection] = useState('profiles');
+  const [introRequests, setIntroRequests] = useState([]);
 
   useEffect(() => {
     const metaDescription = document.querySelector('meta[name="description"]');
@@ -286,6 +287,15 @@ function App() {
           setRecommendedVendors(recommendedData);
         }
       }
+
+      if (token) {
+        const introRes = await fetch(`${API_URL}/api/intro-requests`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (introRes.ok) {
+          setIntroRequests(await introRes.json());
+        }
+      }
     } catch (error) {
       console.warn('Failed to load network data', error);
     }
@@ -398,6 +408,7 @@ function App() {
             handleSubmit={handleSubmit}
             toggleMetricsSharing={toggleMetricsSharing}
             recommendedVendors={recommendedVendors}
+            introRequests={introRequests}
           />
         }
       />
@@ -408,6 +419,8 @@ function App() {
             user={user}
             vendors={vendors}
             companies={companies}
+            token={token}
+            apiUrl={API_URL}
             handleLogout={handleLogout}
           />
         }

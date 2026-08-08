@@ -18,7 +18,8 @@ function DashboardPage({
   setContent,
   handleSubmit,
   toggleMetricsSharing,
-  recommendedVendors
+  recommendedVendors,
+  introRequests,
 }) {
   return (
     <div className="app-shell">
@@ -250,6 +251,30 @@ function DashboardPage({
           ))}
         </div>
       </section>
+
+      {introRequests && introRequests.length > 0 && (
+        <section className="panel">
+          <div className="section-header">
+            <div>
+              <p className="eyebrow">Marketplace</p>
+              <h2 className="section-title">My intro requests</h2>
+            </div>
+            <span className="section-meta">{introRequests.filter((r) => r.status === 'pending').length} pending</span>
+          </div>
+          <div className="intro-requests-list">
+            {introRequests.map((req) => (
+              <div key={req.id} className="intro-request-row">
+                <div className="intro-request-info">
+                  <strong>{req.vendorId}</strong>
+                  {req.message && <p className="intro-request-message">&ldquo;{req.message}&rdquo;</p>}
+                  <span className="intro-request-date">{new Date(req.createdAt).toLocaleDateString()}</span>
+                </div>
+                <span className={`intro-status-badge intro-status-${req.status}`}>{req.status}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="panel composer">
         <h2>Create a post</h2>

@@ -11,6 +11,8 @@ const storeFilePath = process.env.STORE_FILE_PATH || path.join(dataDir, 'store.j
 
 const fallbackSessions = [];
 const fallbackCompanyMetrics = [];
+const fallbackIntroRequests = [];
+let fallbackIntroRequestNextId = 1;
 
 function ensureDataDirectory() {
   if (!fs.existsSync(dataDir)) {
@@ -138,6 +140,10 @@ function loadPersistedFallbackStore() {
     if (Array.isArray(parsed.companyMetrics)) {
       fallbackCompanyMetrics.splice(0, fallbackCompanyMetrics.length, ...parsed.companyMetrics);
     }
+    if (Array.isArray(parsed.introRequests)) {
+      fallbackIntroRequests.splice(0, fallbackIntroRequests.length, ...parsed.introRequests);
+      fallbackIntroRequestNextId = fallbackIntroRequests.reduce((max, r) => Math.max(max, r.id + 1), 1);
+    }
   } catch (error) {
     console.warn('Unable to load persisted fallback store. Continuing with seeded data.');
   }
@@ -160,7 +166,8 @@ function persistFallbackStore() {
         vendors,
         meetings,
         feedItems,
-        companyMetrics: fallbackCompanyMetrics
+        companyMetrics: fallbackCompanyMetrics,
+        introRequests: fallbackIntroRequests
       }, null, 2),
       'utf8'
     );
@@ -1268,4 +1275,90 @@ async function createSession(user) {
   );
 
   return token;
+}
+
+export async function createIntroRequest({ userId, vendorId, message }) {
+  const now = new Date().toISOString();
+  const result = await queryWithFallback(
+    `INSERT INTO intro_requests (requester_user_id, vendor_id, message, status, created_at, updated_at)
+     VALUES ($1, $2, $3, 'pending', $4, $4)
+     RETURNING id, requester_user_id, vendor_id, message, status, created_at, updated_at`,
+    [userId, vendorId, message || null, now],
+    () => {
+      const existing = fallbackIntroRequests.find(
+        (r) => r.requesterUserId === userId && r.vendorId === vendorId && r.status === 'pending'
+      );
+      if (existing) {
+        const error = new Error('An intro request for this vendor is already pending');
+        error.statusCode = 409;
+        throw error;
+      }
+      const record = {
+        id: fallbackIntroRequestNextId++,
+        requesterUserId: userId,
+        vendorId,
+        message: message || null,
+        status: 'pending',
+        createdAt: now,
+        updatedAt: now,
+      };
+      fallbackIntroRequests.push(record);
+      persistFallbackStore();
+      return { rowCount: 1, rows: [{ id: record.id, requester_user_id: record.requesterUserId, vendor_id: record.vendorId, message: record.message, status: record.status, created_at: record.createdAt, updated_at: record.updatedAt }] };
+    }
+  );
+
+  if (result.rowCount === 0) {
+    throw new Error('Failed to create intro request');
+  }
+
+  return parseIntroRequestRow(result.rows[0]);
+}
+
+export async function getIntroRequestsByUser(userId) {
+  const result = await queryWithFallback(
+    `SELECT id, requester_user_id, vendor_id, message, status, created_at, updated_at
+     FROM intro_requests WHERE requester_user_id = $1 ORDER BY created_at DESC`,
+    [userId],
+    () => ({
+      rowCount: fallbackIntroRequests.length,
+      rows: fallbackIntroRequests
+        .filter((r) => r.requesterUserId === userId)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .map((r) => ({ id: r.id, requester_user_id: r.requesterUserId, vendor_id: r.vendorId, message: r.message, status: r.status, created_at: r.createdAt, updated_at: r.updatedAt }))
+    })
+  );
+
+  return result.rows.map(parseIntroRequestRow);
+}
+
+export async function cancelIntroRequest(id, userId) {
+  const result = await queryWithFallback(
+    `DELETE FROM intro_requests WHERE id = $1 AND requester_user_id = $2 AND status = 'pending' RETURNING id`,
+    [id, userId],
+    () => {
+      const index = fallbackIntroRequests.findIndex((r) => r.id === id && r.requesterUserId === userId && r.status === 'pending');
+      if (index === -1) return { rowCount: 0, rows: [] };
+      fallbackIntroRequests.splice(index, 1);
+      persistFallbackStore();
+      return { rowCount: 1, rows: [{ id }] };
+    }
+  );
+
+  if (result.rowCount === 0) {
+    const error = new Error('Request not found or already processed');
+    error.statusCode = 404;
+    throw error;
+  }
+}
+
+function parseIntroRequestRow(row) {
+  return {
+    id: row.id,
+    vendorId: row.vendor_id,
+    message: row.message,
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
 }

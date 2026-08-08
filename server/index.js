@@ -4,6 +4,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import {
   authenticateUser,
+  cancelIntroRequest,
+  createIntroRequest,
   createOrUpdateCompanyOnboarding,
   connectHubspot,
   createPost,
@@ -13,6 +15,7 @@ import {
   getUserFromSession,
   getCompanies,
   getFeedItems,
+  getIntroRequestsByUser,
   getMeetings,
   ingestCompanyMetrics,
   getRankedCompanies,
@@ -472,6 +475,51 @@ app.post('/api/companies/:companyId/hubspot', requireAuth, async (req, res) => {
     res.json(company);
   } catch (error) {
     res.status(404).json({ error: error.message || 'Company not found' });
+  }
+});
+
+app.post('/api/intro-requests', requireAuth, async (req, res) => {
+  const vendorId = readTrimmedText(req.body?.vendorId);
+  const message = readTrimmedText(req.body?.message);
+
+  if (!vendorId || vendorId.length > 64) {
+    return res.status(400).json({ error: 'vendorId is required' });
+  }
+
+  if (message.length > 1000) {
+    return res.status(400).json({ error: 'Message must be under 1000 characters' });
+  }
+
+  try {
+    const request = await createIntroRequest({ userId: req.authUser.id, vendorId, message });
+    return res.status(201).json(request);
+  } catch (error) {
+    const status = error.statusCode || 500;
+    return res.status(status).json({ error: error.message || 'Failed to create intro request' });
+  }
+});
+
+app.get('/api/intro-requests', requireAuth, async (req, res) => {
+  try {
+    const requests = await getIntroRequestsByUser(req.authUser.id);
+    return res.json(requests);
+  } catch (error) {
+    return res.status(500).json({ error: 'Failed to fetch intro requests' });
+  }
+});
+
+app.delete('/api/intro-requests/:id', requireAuth, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isFinite(id)) {
+    return res.status(400).json({ error: 'Invalid request id' });
+  }
+
+  try {
+    await cancelIntroRequest(id, req.authUser.id);
+    return res.status(204).send();
+  } catch (error) {
+    const status = error.statusCode || 500;
+    return res.status(status).json({ error: error.message || 'Failed to cancel intro request' });
   }
 });
 
