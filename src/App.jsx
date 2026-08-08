@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import NavBar from './components/NavBar';
 import LandingPage from './pages/LandingPage';
 import DashboardPage from './pages/DashboardPage';
 import MarketplacePage from './pages/MarketplacePage';
@@ -23,7 +24,8 @@ function App() {
   const [author, setAuthor] = useState('Guest');
   const [content, setContent] = useState('');
   const [status, setStatus] = useState('Loading posts...');
-  const [companies, setCompanies] = useState(fallbackCompanies);
+  const [companies, setCompanies] = useState([]);
+  const [companiesLoading, setCompaniesLoading] = useState(true);
   const [vendors, setVendors] = useState(fallbackVendors);
   const [recommendedVendors, setRecommendedVendors] = useState(fallbackVendors.map((vendor) => ({
     ...vendor,
@@ -249,6 +251,7 @@ function App() {
   }
 
   async function loadNetworkData() {
+    setCompaniesLoading(true);
     try {
       const [companiesRes, vendorsRes, meetingsRes, feedRes] = await Promise.all([
         fetch(`${API_URL}/api/companies/ranked`),
@@ -263,6 +266,9 @@ function App() {
         const companiesData = await companiesRes.json();
         setCompanies(companiesData);
         preferredCompanyId = companiesData[0]?.id || '';
+      } else {
+        setCompanies(fallbackCompanies);
+        preferredCompanyId = fallbackCompanies[0]?.id || '';
       }
 
       if (vendorsRes.ok) {
@@ -298,6 +304,9 @@ function App() {
       }
     } catch (error) {
       console.warn('Failed to load network data', error);
+      setCompanies(fallbackCompanies);
+    } finally {
+      setCompaniesLoading(false);
     }
   }
 
@@ -333,7 +342,12 @@ function App() {
 
   if (!user) {
     return (
-      <Routes>
+      <>
+        <NavBar
+          onSignupClick={() => { setAuthMode('signup'); navigate('/signup'); }}
+          onSigninClick={() => { setAuthMode('login'); navigate('/login'); }}
+        />
+        <Routes>
         <Route
           path="/"
           element={
@@ -380,12 +394,15 @@ function App() {
           }
         />
         <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+        </Routes>
+      </>
     );
   }
 
   return (
-    <Routes>
+    <>
+      <NavBar user={user} onLogout={handleLogout} />
+      <Routes>
       <Route path="/" element={<Navigate to="/app" replace />} />
       <Route
         path="/app"
@@ -397,6 +414,7 @@ function App() {
             activeSection={activeSection}
             setActiveSection={setActiveSection}
             companies={companies}
+            companiesLoading={companiesLoading}
             meetingsData={meetingsData}
             adviceRequests={adviceRequests}
             status={status}
@@ -448,7 +466,8 @@ function App() {
         }
       />
       <Route path="*" element={<Navigate to="/app" replace />} />
-    </Routes>
+      </Routes>
+    </>
   );
 }
 
