@@ -188,8 +188,48 @@ function DashboardPage({
 
       <section className="panel">
         <div className="section-header">
-          <h2>Recommended vendors for top profile</h2>
-          <span>Ranked by fit, outcomes, service compatibility, availability, and budget alignment</span>
+          <div>
+            <p className="eyebrow">Smart matching</p>
+            <h2 className="section-title">Companies worth connecting with</h2>
+          </div>
+          <span className="section-meta">Ranked by signal strength and network compatibility</span>
+        </div>
+        <div className="suggested-grid">
+          {companies.slice(0, 3).map((company, i) => {
+            const growth = parseFloat(company.growth?.replace(/[^0-9.]/g, '') || 0);
+            const retention = parseFloat(company.retention?.replace('%', '') || 0);
+            const fitReasons = [
+              company.rank?.tier === 'High signal' && 'High signal operator',
+              growth >= 25 && `${company.growth} YoY growth`,
+              retention >= 90 && `${company.retention} retention`,
+              company.hubspotStatus === 'Connected' && 'HubSpot connected',
+              company.metricsSharing === 'accepted' && 'Metrics open to network',
+            ].filter(Boolean).slice(0, 3);
+            return (
+              <article key={company.id} className="suggested-card">
+                <div className="suggested-top">
+                  <span className="suggested-rank">#{i + 1}</span>
+                  <span className="suggested-tier">{company.rank?.tier || 'Signal'}</span>
+                </div>
+                <h3 className="suggested-name">{company.name}</h3>
+                <p className="suggested-sector">{company.sector}</p>
+                <ul className="suggested-reasons">
+                  {fitReasons.map((r) => <li key={r}><span aria-hidden="true">✓</span>{r}</li>)}
+                </ul>
+                <Link to={`/company/${company.id}`} className="action-link suggested-link">View profile</Link>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="section-header">
+          <div>
+            <p className="eyebrow">Vendor matches</p>
+            <h2 className="section-title">Recommended for top profile</h2>
+          </div>
+          <span className="section-meta">Ranked by fit, outcomes, and budget alignment</span>
         </div>
         <div className="vendor-grid">
           {recommendedVendors.map((vendor) => (

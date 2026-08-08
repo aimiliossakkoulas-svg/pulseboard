@@ -1164,6 +1164,242 @@ button:hover,
   }
 }
 
+/* Marketplace vendor cards with pipeline impact */
+.mp-context-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+}
+
+.mp-context-left {
+  flex: 1;
+}
+
+.mp-context-note {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  margin: 4px 0 0;
+}
+
+.mp-context-note strong {
+  color: var(--text-main);
+}
+
+.mp-context-stats {
+  display: flex;
+  gap: 20px;
+  flex-shrink: 0;
+}
+
+.mp-context-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: right;
+}
+
+.mp-context-stat strong {
+  font-size: 1.1rem;
+  color: var(--accent-mint);
+}
+
+.mp-context-stat span {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.mp-vendor-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.mp-vendor-card {
+  border-radius: 20px;
+  background: linear-gradient(145deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03));
+  border: 1px solid rgba(255,255,255,0.09);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: border-color 160ms ease, transform 160ms ease;
+}
+
+.mp-vendor-card:hover {
+  border-color: rgba(83, 216, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.mp-vendor-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.mp-vendor-name {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 1rem;
+  margin: 0 0 4px;
+}
+
+.mp-vendor-category {
+  font-size: 0.78rem;
+  color: var(--accent-blue);
+  font-weight: 600;
+}
+
+.mp-tier-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(83, 216, 255, 0.12);
+  color: var(--accent-blue);
+  border: 1px solid rgba(83, 216, 255, 0.22);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.mp-vendor-desc {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  margin: 0;
+  flex: 1;
+}
+
+.mp-impact-box {
+  border-radius: 12px;
+  background: rgba(142, 242, 199, 0.07);
+  border: 1px solid rgba(142, 242, 199, 0.18);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.mp-impact-label {
+  font-size: 0.73rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.mp-impact-range {
+  font-size: 1.1rem;
+  color: var(--accent-mint);
+  font-family: 'Fraunces', Georgia, serif;
+}
+
+.mp-connect-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: var(--text-main);
+  border-radius: 12px;
+  padding: 10px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background 140ms ease;
+  width: 100%;
+  margin-top: auto;
+}
+
+.mp-connect-btn:hover {
+  background: rgba(83, 216, 255, 0.14);
+  border-color: rgba(83, 216, 255, 0.32);
+}
+
+/* Suggested company connections */
+.suggested-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.suggested-card {
+  border-radius: 20px;
+  background: linear-gradient(145deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03));
+  border: 1px solid rgba(255,255,255,0.09);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 160ms ease, transform 160ms ease;
+}
+
+.suggested-card:hover {
+  border-color: rgba(83, 216, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.suggested-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.suggested-rank {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--accent-blue);
+  letter-spacing: 0.04em;
+}
+
+.suggested-tier {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(142, 242, 199, 0.1);
+  color: var(--accent-mint);
+  border: 1px solid rgba(142, 242, 199, 0.2);
+}
+
+.suggested-name {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 1rem;
+  margin: 0;
+}
+
+.suggested-sector {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.suggested-reasons {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.suggested-reasons li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.suggested-reasons li span {
+  color: var(--accent-mint);
+  font-size: 0.74rem;
+}
+
+.suggested-link {
+  margin-top: auto;
+  font-size: 0.85rem;
+  padding: 9px 0;
+  text-align: center;
+}
+
 /* Metrics upload form */
 .metrics-upload-form {
   display: flex;
@@ -1237,8 +1473,19 @@ button:hover,
 
 @media (max-width: 760px) {
   .lp-company-grid,
-  .membership-grid {
+  .membership-grid,
+  .mp-vendor-grid,
+  .suggested-grid {
     grid-template-columns: 1fr;
+  }
+
+  .mp-context-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .mp-context-stats {
+    justify-content: flex-start;
   }
 
   .landing-hero {

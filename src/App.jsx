@@ -407,6 +407,7 @@ function App() {
           <MarketplacePage
             user={user}
             vendors={vendors}
+            companies={companies}
             handleLogout={handleLogout}
           />
         }
