@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="PulseBoard">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b1b33" />
+      <stop offset="100%" stop-color="#163960" />
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#53d8ff" />
+      <stop offset="100%" stop-color="#7ef0c1" />
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="26" fill="url(#bg)" />
+  <path d="M28 90V38h19c16 0 26 10 26 25S63 90 47 90H28zm13-11h6c8 0 13-6 13-16s-5-14-13-14h-6v30z" fill="url(#accent)" />
+  <circle cx="92" cy="38" r="10" fill="#53d8ff" opacity="0.85" />
+  <circle cx="96" cy="78" r="14" fill="#7ef0c1" opacity="0.75" />
+</svg>

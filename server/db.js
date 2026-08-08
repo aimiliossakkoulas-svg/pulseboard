@@ -1,4 +1,11 @@
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { Pool } from 'pg';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const fallbackStorePath = process.env.STORE_FILE_PATH || path.join(__dirname, 'data', 'store.json');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/socialdb'
@@ -6,11 +13,72 @@ const pool = new Pool({
 
 const memoryStore = {
   users: [],
-  posts: []
+  posts: [],
+  sessions: []
 };
 
 let databaseReady = false;
 let usingMemoryFallback = false;
+
+function loadMemoryStore() {
+  try {
+    if (!fs.existsSync(fallbackStorePath)) {
+      return;
+    }
+
+    const raw = fs.readFileSync(fallbackStorePath, 'utf8');
+    if (!raw.trim()) {
+      return;
+    }
+
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed.users)) {
+      memoryStore.users = parsed.users;
+    }
+    if (Array.isArray(parsed.posts)) {
+      memoryStore.posts = parsed.posts;
+    }
+    if (Array.isArray(parsed.sessions)) {
+      memoryStore.sessions = parsed.sessions;
+    }
+  } catch (error) {
+    console.warn('Unable to load fallback auth/post store.');
+  }
+}
+
+function persistMemoryStore() {
+  try {
+    const directory = path.dirname(fallbackStorePath);
+    if (!fs.existsSync(directory)) {
+      fs.mkdirSync(directory, { recursive: true });
+    }
+
+    let existing = {};
+    if (fs.existsSync(fallbackStorePath)) {
+      const raw = fs.readFileSync(fallbackStorePath, 'utf8');
+      existing = raw.trim() ? JSON.parse(raw) : {};
+    }
+
+    fs.writeFileSync(
+      fallbackStorePath,
+      JSON.stringify(
+        {
+          ...existing,
+          users: memoryStore.users,
+          posts: memoryStore.posts,
+          sessions: memoryStore.sessions
+        },
+        null,
+        2
+      ),
+      'utf8'
+    );
+  } catch (error) {
+    console.warn('Unable to persist fallback auth/post store.');
+  }
+}
+
+loadMemoryStore();
 
 async function ensureDatabase() {
   if (databaseReady) {
@@ -83,6 +151,7 @@ function queryMemory(text, params = []) {
       password_hash: passwordHash
     };
     memoryStore.users.push(user);
+    persistMemoryStore();
     return createMemoryResult([{ id: user.id, name: user.name, email: user.email, role: user.role }]);
   }
 
@@ -110,7 +179,44 @@ function queryMemory(text, params = []) {
       created_at: new Date().toISOString()
     };
     memoryStore.posts.push(post);
+    persistMemoryStore();
     return createMemoryResult([{ id: post.id, author: post.author, content: post.content, created_at: post.created_at }]);
+  }
+
+  if (normalized.includes('INSERT INTO SESSIONS')) {
+    const [token, userId, expiresAt] = params;
+    const session = {
+      token,
+      user_id: Number(userId),
+      expires_at: expiresAt,
+      created_at: new Date().toISOString()
+    };
+
+    memoryStore.sessions.push(session);
+    persistMemoryStore();
+    return createMemoryResult([]);
+  }
+
+  if (normalized.includes('DELETE FROM SESSIONS WHERE TOKEN = $1')) {
+    const [token] = params;
+    memoryStore.sessions = memoryStore.sessions.filter((session) => session.token !== token);
+    persistMemoryStore();
+    return createMemoryResult([]);
+  }
+
+  if (normalized.includes('FROM SESSIONS S') && normalized.includes('INNER JOIN USERS U')) {
+    const [token] = params;
+    const session = memoryStore.sessions.find((entry) => entry.token === token && new Date(entry.expires_at) > new Date());
+    if (!session) {
+      return createMemoryResult([]);
+    }
+
+    const user = memoryStore.users.find((entry) => entry.id === session.user_id);
+    if (!user) {
+      return createMemoryResult([]);
+    }
+
+    return createMemoryResult([{ id: user.id, name: user.name, email: user.email, role: user.role }]);
   }
 
   throw new Error(`Unsupported query in memory fallback: ${text}`);

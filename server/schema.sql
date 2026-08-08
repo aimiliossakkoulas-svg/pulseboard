@@ -13,3 +13,67 @@ CREATE TABLE IF NOT EXISTS users (
   role VARCHAR(50) NOT NULL DEFAULT 'Founder',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS sessions (
+  id SERIAL PRIMARY KEY,
+  token VARCHAR(255) UNIQUE NOT NULL,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  expires_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS companies (
+  id VARCHAR(64) PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  sector VARCHAR(100) NOT NULL,
+  summary TEXT NOT NULL,
+  growth VARCHAR(50) NOT NULL,
+  retention VARCHAR(50) NOT NULL,
+  pipeline VARCHAR(50) NOT NULL,
+  hubspot_status VARCHAR(100) NOT NULL,
+  rating VARCHAR(50) NOT NULL,
+  review VARCHAR(255) NOT NULL,
+  metrics_sharing VARCHAR(30) NOT NULL,
+  hubspot_deals VARCHAR(100) NOT NULL,
+  hubspot_campaigns VARCHAR(100) NOT NULL,
+  hubspot_meetings VARCHAR(100) NOT NULL,
+  hubspot_portal VARCHAR(100),
+  hubspot_owner VARCHAR(100),
+  hubspot_connected_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS vendors (
+  id VARCHAR(64) PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  category VARCHAR(255) NOT NULL,
+  description TEXT NOT NULL,
+  tier VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS meetings (
+  id VARCHAR(64) PRIMARY KEY,
+  company_id VARCHAR(64) NOT NULL,
+  topic VARCHAR(255) NOT NULL,
+  schedule VARCHAR(100) NOT NULL,
+  visibility VARCHAR(255) NOT NULL,
+  host VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS feed_items (
+  id VARCHAR(64) PRIMARY KEY,
+  author VARCHAR(100) NOT NULL,
+  detail TEXT NOT NULL,
+  time VARCHAR(50) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS company_metrics (
+  id SERIAL PRIMARY KEY,
+  company_id VARCHAR(64) NOT NULL,
+  source_type VARCHAR(50) NOT NULL,
+  verification_status VARCHAR(50) NOT NULL,
+  confidence_score DOUBLE PRECISION NOT NULL,
+  metric_key VARCHAR(100) NOT NULL,
+  metric_value DOUBLE PRECISION NOT NULL,
+  captured_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

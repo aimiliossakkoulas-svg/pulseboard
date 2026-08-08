@@ -1,0 +1,28 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: pulseboard-api
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - STORE_FILE_PATH=/app/server/data/store.json
+    volumes:
+      - store_data:/app/server/data
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    container_name: pulseboard-web
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:5000
+
+volumes:
+  store_data:

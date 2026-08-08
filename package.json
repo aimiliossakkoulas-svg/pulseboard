@@ -7,7 +7,18 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "dev:server": "node server/index.js"
+    "dev:server": "node server/index.js",
+    "backup:store": "node server/scripts/backup-store.mjs",
+    "restore:store": "node server/scripts/restore-store.mjs",
+    "docker:up": "docker compose up --build",
+    "docker:up:detached": "docker compose up --build -d",
+    "docker:down": "docker compose down",
+    "docker:reload": "docker compose restart",
+    "docker:reset": "docker compose down && docker compose up --build -d",
+    "docker:clean": "docker compose down -v --remove-orphans",
+    "docker:logs": "docker compose logs -f",
+    "docker:restart": "docker compose down && docker compose up --build -d",
+    "docker:verify": "node scripts/docker-verify.mjs"
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -15,7 +26,8 @@
     "express": "^4.21.2",
     "pg": "^8.6.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.30.4"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",

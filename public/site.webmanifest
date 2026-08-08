@@ -1,0 +1,16 @@
+{
+  "name": "PulseBoard",
+  "short_name": "PulseBoard",
+  "description": "Trusted company network with selective metrics sharing and premium partner discovery.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#07111f",
+  "theme_color": "#07111f",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

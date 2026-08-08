@@ -1,0 +1,16 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Docker Up Detached",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"docker:up:detached"
+			],
+			"isBackground": false,
+			"group": "build"
+		}
+	]
+}

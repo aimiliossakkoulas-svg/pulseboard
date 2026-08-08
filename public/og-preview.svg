@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="PulseBoard preview">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#07111f" />
+      <stop offset="45%" stop-color="#0f2a4a" />
+      <stop offset="100%" stop-color="#061022" />
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#53d8ff" />
+      <stop offset="100%" stop-color="#7ef0c1" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)" />
+  <circle cx="1050" cy="120" r="180" fill="#53d8ff" opacity="0.12" />
+  <circle cx="160" cy="530" r="220" fill="#7ef0c1" opacity="0.1" />
+  <text x="90" y="220" fill="#66d9ef" font-family="Segoe UI, Arial, sans-serif" font-size="30" letter-spacing="7">PULSEBOARD NETWORK</text>
+  <text x="90" y="320" fill="#f4f7fb" font-family="Segoe UI, Arial, sans-serif" font-size="72" font-weight="700">Trusted Company</text>
+  <text x="90" y="395" fill="#f4f7fb" font-family="Segoe UI, Arial, sans-serif" font-size="72" font-weight="700">Profiles at Scale</text>
+  <text x="90" y="470" fill="#adc2d9" font-family="Segoe UI, Arial, sans-serif" font-size="34">Selective metrics sharing, partner intelligence, and premium marketplace discovery.</text>
+  <rect x="90" y="515" width="450" height="12" rx="6" fill="url(#accent)" />
+</svg>

@@ -1,0 +1,91 @@
+{
+  "users": [
+    {
+      "id": "user-1",
+      "name": "Test User",
+      "email": "store-1786125497776@example.com",
+      "role": "Founder",
+      "password_hash": "2bb80d537b1da3e38bd30361aa855686bde0eacd7162fef6a25fe97bf527a25b"
+    },
+    {
+      "id": "user-2",
+      "name": "Test User",
+      "email": "store-1786125555597@example.com",
+      "role": "Founder",
+      "password_hash": "2bb80d537b1da3e38bd30361aa855686bde0eacd7162fef6a25fe97bf527a25b"
+    }
+  ],
+  "posts": [
+    {
+      "id": "post-2",
+      "author": "Test User",
+      "content": "A new update from the test user.",
+      "created_at": "2026-08-07T17:59:15.599Z"
+    },
+    {
+      "id": "post-1",
+      "author": "Test User",
+      "content": "A new update from the test user.",
+      "created_at": "2026-08-07T17:58:17.780Z"
+    }
+  ],
+  "companies": [
+    {
+      "id": "alpha",
+      "name": "Alpha Labs",
+      "sector": "SaaS",
+      "summary": "Growth-stage product company focused on retention and pipeline expansion.",
+      "growth": "+28%",
+      "retention": "91%",
+      "pipeline": "$2.4M",
+      "hubspotStatus": "Connected",
+      "rating": "9.4/10",
+      "review": "Trusted by 12 agents",
+      "metricsSharing": "private",
+      "hubspotMetrics": {
+        "deals": "18 active",
+        "campaigns": "7 live",
+        "meetings": "24 this quarter",
+        "portal": "demo",
+        "owner": "Ava",
+        "connectedAt": "2026-08-07T17:59:15.604Z"
+      }
+    },
+    {
+      "id": "pulse",
+      "name": "Pulse Commerce",
+      "sector": "E-commerce",
+      "summary": "Commerce network using selective profile visibility to share performance metrics.",
+      "growth": "+19%",
+      "retention": "87%",
+      "pipeline": "$1.1M",
+      "hubspotStatus": "Connected",
+      "rating": "8.7/10",
+      "review": "Selective visibility",
+      "metricsSharing": "private",
+      "hubspotMetrics": {
+        "deals": "9 active",
+        "campaigns": "3 live",
+        "meetings": "12 this quarter"
+      }
+    },
+    {
+      "id": "nova",
+      "name": "Nova Insights",
+      "sector": "Analytics",
+      "summary": "Analytics firm sharing benchmark trends with highly vetted partner networks.",
+      "growth": "+35%",
+      "retention": "94%",
+      "pipeline": "$3.2M",
+      "hubspotStatus": "Preview",
+      "rating": "9.8/10",
+      "review": "Partner recommended",
+      "metricsSharing": "accepted",
+      "hubspotMetrics": {
+        "deals": "22 active",
+        "campaigns": "10 live",
+        "meetings": "31 this quarter"
+      }
+    }
+  ]
+}

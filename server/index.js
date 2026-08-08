@@ -1,38 +1,143 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import {
   authenticateUser,
+  createOrUpdateCompanyOnboarding,
   connectHubspot,
   createPost,
   createUser,
+  getCompanyMetrics,
+  getCompanyProfile,
+  getUserFromSession,
   getCompanies,
   getFeedItems,
   getMeetings,
+  ingestCompanyMetrics,
+  getRankedCompanies,
+  getRecommendedVendors,
   getVendors,
   listPosts,
+  revokeSession,
   toggleMetricsSharing
 } from './store.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const VALID_ROLES = new Set(['Founder', 'Agent', 'Vendor']);
+const COMPANY_ID_PATTERN = /^[a-z0-9-]{2,64}$/i;
+const METRIC_SOURCE_TYPES = new Set(['manual', 'csv', 'quickbooks', 'hubspot', 'stripe']);
+const METRIC_VERIFICATION_STATUSES = new Set(['verified', 'self-reported', 'reviewed']);
+const METRIC_ALLOWED_KEYS = new Set([
+  'growth_percent',
+  'retention_percent',
+  'pipeline_millions',
+  'deals_active',
+  'campaigns_live',
+  'meetings_quarter'
+]);
 
 app.use(cors());
 app.use(express.json());
+
+function getBearerToken(req) {
+  const authHeader = req.headers.authorization || '';
+  if (!authHeader.startsWith('Bearer ')) {
+    return '';
+  }
+
+  return authHeader.slice('Bearer '.length).trim();
+}
+
+function readTrimmedText(value) {
+  if (typeof value !== 'string') {
+    return '';
+  }
+
+  return value.trim();
+}
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function toFiniteNumber(value) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : NaN;
+}
+
+function normalizeMetricsPayload(metrics) {
+  if (!Array.isArray(metrics)) {
+    return [];
+  }
+
+  return metrics
+    .map((entry) => {
+      const metricKey = readTrimmedText(entry?.metricKey);
+      const metricValue = toFiniteNumber(entry?.metricValue);
+      if (!METRIC_ALLOWED_KEYS.has(metricKey) || Number.isNaN(metricValue)) {
+        return null;
+      }
+
+      return { metricKey, metricValue };
+    })
+    .filter(Boolean);
+}
+
+async function requireAuth(req, res, next) {
+  try {
+    const token = getBearerToken(req);
+    if (!token) {
+      return res.status(401).json({ error: 'Authentication token is required' });
+    }
+
+    const user = await getUserFromSession(token);
+    if (!user) {
+      return res.status(401).json({ error: 'Session is invalid or expired' });
+    }
+
+    req.authUser = user;
+    req.authToken = token;
+    return next();
+  } catch (error) {
+    return res.status(500).json({ error: 'Unable to validate session' });
+  }
+}
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
 app.post('/api/auth/signup', async (req, res) => {
-  const { name, email, password, role } = req.body;
+  const name = readTrimmedText(req.body?.name);
+  const email = readTrimmedText(req.body?.email).toLowerCase();
+  const password = readTrimmedText(req.body?.password);
+  const role = readTrimmedText(req.body?.role) || 'Founder';
 
   if (!name || !email || !password) {
     return res.status(400).json({ error: 'Name, email, and password are required' });
   }
 
+  if (name.length < 2 || name.length > 100) {
+    return res.status(400).json({ error: 'Name must be between 2 and 100 characters' });
+  }
+
+  if (!isValidEmail(email) || email.length > 255) {
+    return res.status(400).json({ error: 'A valid email is required' });
+  }
+
+  if (password.length < 8 || password.length > 128) {
+    return res.status(400).json({ error: 'Password must be between 8 and 128 characters' });
+  }
+
+  if (!VALID_ROLES.has(role)) {
+    return res.status(400).json({ error: 'Role must be Founder, Agent, or Vendor' });
+  }
+
   try {
-    const user = await createUser({ name, email, password, role });
-    res.status(201).json({ user });
+    const result = await createUser({ name, email, password, role });
+    res.status(201).json(result);
   } catch (error) {
     const status = error.statusCode || 500;
     res.status(status).json({ error: error.message || 'Failed to create account' });
@@ -40,19 +145,53 @@ app.post('/api/auth/signup', async (req, res) => {
 });
 
 app.post('/api/auth/login', async (req, res) => {
-  const { email, password } = req.body;
+  const email = readTrimmedText(req.body?.email).toLowerCase();
+  const password = readTrimmedText(req.body?.password);
 
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required' });
   }
 
+  if (!isValidEmail(email) || email.length > 255) {
+    return res.status(400).json({ error: 'A valid email is required' });
+  }
+
+  if (password.length < 8 || password.length > 128) {
+    return res.status(400).json({ error: 'Password must be between 8 and 128 characters' });
+  }
+
   try {
-    const user = await authenticateUser({ email, password });
-    res.json({ user });
+    const result = await authenticateUser({ email, password });
+    res.json(result);
   } catch (error) {
     const status = error.statusCode || 500;
     res.status(status).json({ error: error.message || 'Failed to sign in' });
   }
+});
+
+app.get('/api/auth/me', async (req, res) => {
+  const token = getBearerToken(req);
+
+  if (!token) {
+    return res.status(401).json({ error: 'Authentication token is required' });
+  }
+
+  const user = await getUserFromSession(token);
+  if (!user) {
+    return res.status(401).json({ error: 'Session is invalid or expired' });
+  }
+
+  return res.json({ user });
+});
+
+app.post('/api/auth/logout', async (req, res) => {
+  const token = getBearerToken(req);
+
+  if (token) {
+    await revokeSession(token);
+  }
+
+  return res.status(204).send();
 });
 
 app.get('/api/posts', async (req, res) => {
@@ -64,15 +203,19 @@ app.get('/api/posts', async (req, res) => {
   }
 });
 
-app.post('/api/posts', async (req, res) => {
-  const { author, content } = req.body;
+app.post('/api/posts', requireAuth, async (req, res) => {
+  const content = readTrimmedText(req.body?.content);
 
-  if (!author || !content) {
-    return res.status(400).json({ error: 'Author and content are required' });
+  if (!content) {
+    return res.status(400).json({ error: 'Content is required' });
+  }
+
+  if (content.length > 2000) {
+    return res.status(400).json({ error: 'Content must be 2000 characters or fewer' });
   }
 
   try {
-    const post = await createPost({ author, content });
+    const post = await createPost({ author: req.authUser.name, content });
     res.status(201).json(post);
   } catch (error) {
     res.status(500).json({ error: 'Failed to create post' });
@@ -88,12 +231,189 @@ app.get('/api/companies', async (req, res) => {
   }
 });
 
+app.get('/api/companies/ranked', async (req, res) => {
+  try {
+    const companies = await getRankedCompanies();
+    res.json(companies);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch ranked companies' });
+  }
+});
+
+app.post('/api/companies/onboarding', requireAuth, async (req, res) => {
+  const companyName = readTrimmedText(req.body?.companyName);
+  const sector = readTrimmedText(req.body?.sector);
+  const summary = readTrimmedText(req.body?.summary);
+  const sourceType = readTrimmedText(req.body?.sourceType).toLowerCase() || 'manual';
+  const metricsSharing = readTrimmedText(req.body?.metricsSharing).toLowerCase() || 'private';
+  const verificationStatus = readTrimmedText(req.body?.verificationStatus).toLowerCase() || 'self-reported';
+  const confidenceScore = toFiniteNumber(req.body?.confidenceScore);
+  const metrics = normalizeMetricsPayload(req.body?.metrics);
+  const capturedAt = readTrimmedText(req.body?.capturedAt) || new Date().toISOString();
+
+  if (!companyName || companyName.length < 2 || companyName.length > 255) {
+    return res.status(400).json({ error: 'Company name must be between 2 and 255 characters' });
+  }
+
+  if (!sector || sector.length > 100) {
+    return res.status(400).json({ error: 'Sector is required and must be under 100 characters' });
+  }
+
+  if (!summary || summary.length < 20 || summary.length > 500) {
+    return res.status(400).json({ error: 'Summary must be between 20 and 500 characters' });
+  }
+
+  if (!METRIC_SOURCE_TYPES.has(sourceType)) {
+    return res.status(400).json({ error: 'Source type is invalid' });
+  }
+
+  if (!METRIC_VERIFICATION_STATUSES.has(verificationStatus)) {
+    return res.status(400).json({ error: 'Verification status is invalid' });
+  }
+
+  if (Number.isNaN(confidenceScore) || confidenceScore < 0 || confidenceScore > 1) {
+    return res.status(400).json({ error: 'Confidence score must be between 0 and 1' });
+  }
+
+  if (!metrics.length) {
+    return res.status(400).json({
+      error: 'At least one valid metric is required',
+      supportedMetricKeys: [...METRIC_ALLOWED_KEYS]
+    });
+  }
+
+  try {
+    const company = await createOrUpdateCompanyOnboarding({
+      companyName,
+      sector,
+      summary,
+      sourceType,
+      metricsSharing
+    });
+
+    if (!company?.id) {
+      return res.status(500).json({ error: 'Failed to create company profile' });
+    }
+
+    await ingestCompanyMetrics({
+      companyId: company.id,
+      sourceType,
+      verificationStatus,
+      confidenceScore,
+      metrics,
+      capturedAt
+    });
+
+    const profile = await getCompanyProfile(company.id);
+    return res.status(201).json(profile);
+  } catch (error) {
+    const status = error.statusCode || 500;
+    return res.status(status).json({ error: error.message || 'Failed to onboard company' });
+  }
+});
+
 app.get('/api/vendors', async (req, res) => {
   try {
     const vendors = await getVendors();
     res.json(vendors);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch vendors' });
+  }
+});
+
+app.get('/api/vendors/recommended/:companyId', async (req, res) => {
+  const { companyId } = req.params;
+
+  if (!COMPANY_ID_PATTERN.test(companyId)) {
+    return res.status(400).json({ error: 'Company id is invalid' });
+  }
+
+  try {
+    const recommended = await getRecommendedVendors(companyId);
+    res.json(recommended);
+  } catch (error) {
+    const status = error.statusCode || 500;
+    res.status(status).json({ error: error.message || 'Failed to fetch recommended vendors' });
+  }
+});
+
+app.get('/api/companies/:companyId/profile', async (req, res) => {
+  const { companyId } = req.params;
+
+  if (!COMPANY_ID_PATTERN.test(companyId)) {
+    return res.status(400).json({ error: 'Company id is invalid' });
+  }
+
+  try {
+    const profile = await getCompanyProfile(companyId);
+    res.json(profile);
+  } catch (error) {
+    const status = error.statusCode || 500;
+    res.status(status).json({ error: error.message || 'Failed to fetch company profile' });
+  }
+});
+
+app.get('/api/companies/:companyId/metrics', async (req, res) => {
+  const { companyId } = req.params;
+
+  if (!COMPANY_ID_PATTERN.test(companyId)) {
+    return res.status(400).json({ error: 'Company id is invalid' });
+  }
+
+  try {
+    const metrics = await getCompanyMetrics(companyId);
+    return res.json(metrics);
+  } catch (error) {
+    const status = error.statusCode || 500;
+    return res.status(status).json({ error: error.message || 'Failed to fetch company metrics' });
+  }
+});
+
+app.post('/api/companies/:companyId/metrics/:sourceType', requireAuth, async (req, res) => {
+  const { companyId, sourceType } = req.params;
+  const normalizedSource = readTrimmedText(sourceType).toLowerCase();
+  const verificationStatus = readTrimmedText(req.body?.verificationStatus).toLowerCase() || 'self-reported';
+  const confidenceScore = toFiniteNumber(req.body?.confidenceScore);
+  const metrics = normalizeMetricsPayload(req.body?.metrics);
+  const capturedAt = readTrimmedText(req.body?.capturedAt) || new Date().toISOString();
+
+  if (!COMPANY_ID_PATTERN.test(companyId)) {
+    return res.status(400).json({ error: 'Company id is invalid' });
+  }
+
+  if (!METRIC_SOURCE_TYPES.has(normalizedSource)) {
+    return res.status(400).json({ error: 'Source type is invalid' });
+  }
+
+  if (!METRIC_VERIFICATION_STATUSES.has(verificationStatus)) {
+    return res.status(400).json({ error: 'Verification status is invalid' });
+  }
+
+  if (Number.isNaN(confidenceScore) || confidenceScore < 0 || confidenceScore > 1) {
+    return res.status(400).json({ error: 'Confidence score must be between 0 and 1' });
+  }
+
+  if (!metrics.length) {
+    return res.status(400).json({
+      error: 'At least one valid metric is required',
+      supportedMetricKeys: [...METRIC_ALLOWED_KEYS]
+    });
+  }
+
+  try {
+    const result = await ingestCompanyMetrics({
+      companyId,
+      sourceType: normalizedSource,
+      verificationStatus,
+      confidenceScore,
+      metrics,
+      capturedAt
+    });
+
+    return res.status(201).json(result);
+  } catch (error) {
+    const status = error.statusCode || 500;
+    return res.status(status).json({ error: error.message || 'Failed to ingest company metrics' });
   }
 });
 
@@ -115,8 +435,12 @@ app.get('/api/feed', async (req, res) => {
   }
 });
 
-app.post('/api/companies/:companyId/share', async (req, res) => {
+app.post('/api/companies/:companyId/share', requireAuth, async (req, res) => {
   const { companyId } = req.params;
+
+  if (!COMPANY_ID_PATTERN.test(companyId)) {
+    return res.status(400).json({ error: 'Company id is invalid' });
+  }
 
   try {
     const company = await toggleMetricsSharing(companyId);
@@ -126,9 +450,22 @@ app.post('/api/companies/:companyId/share', async (req, res) => {
   }
 });
 
-app.post('/api/companies/:companyId/hubspot', async (req, res) => {
+app.post('/api/companies/:companyId/hubspot', requireAuth, async (req, res) => {
   const { companyId } = req.params;
-  const { portal, owner } = req.body;
+  const portal = readTrimmedText(req.body?.portal);
+  const owner = readTrimmedText(req.body?.owner);
+
+  if (!COMPANY_ID_PATTERN.test(companyId)) {
+    return res.status(400).json({ error: 'Company id is invalid' });
+  }
+
+  if (!portal || portal.length > 100) {
+    return res.status(400).json({ error: 'Portal is required and must be under 100 characters' });
+  }
+
+  if (!owner || owner.length > 100) {
+    return res.status(400).json({ error: 'Owner is required and must be under 100 characters' });
+  }
 
   try {
     const company = await connectHubspot(companyId, { portal, owner });
@@ -138,6 +475,17 @@ app.post('/api/companies/:companyId/hubspot', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+export function startServer(port = PORT) {
+  return app.listen(port, () => {
+    console.log(`Server running on port ${port}`);
+  });
+}
+
+const currentFilePath = fileURLToPath(import.meta.url);
+const launchedScriptPath = process.argv[1] ? path.resolve(process.argv[1]) : '';
+
+if (launchedScriptPath && launchedScriptPath === currentFilePath) {
+  startServer();
+}
+
+export default app;
