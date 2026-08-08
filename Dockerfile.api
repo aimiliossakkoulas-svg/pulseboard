@@ -9,4 +9,4 @@ COPY server ./server
 
 EXPOSE 5000
 
-CMD ["npm", "run", "dev:server"]
+CMD sh -c "PORT=${PORT:-5000} npm run dev:server"
