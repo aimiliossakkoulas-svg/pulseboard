@@ -19,9 +19,9 @@ function NavBar({ user, onSignupClick, onSigninClick, onLogout }) {
             <button type="button" className="site-nav-btn" onClick={onLogout}>Log out</button>
           </div>
         ) : (
-          <div className="site-nav-actions">
-            <button type="button" className="site-nav-btn site-nav-btn-ghost" onClick={onSigninClick}>Sign in</button>
-            <button type="button" className="site-nav-btn site-nav-btn-primary" onClick={onSignupClick}>Join network</button>
+          <div className="site-nav-actions site-nav-auth">
+            <button type="button" className="social-btn social-btn-login" onClick={onSigninClick}>Log in</button>
+            <button type="button" className="social-btn social-btn-signup" onClick={onSignupClick}>Sign up</button>
           </div>
         )}
       </div>

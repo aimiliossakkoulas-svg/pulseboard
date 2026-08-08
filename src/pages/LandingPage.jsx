@@ -197,16 +197,16 @@ function LandingPage({ heroStats, previewFeedItems, authMode, setAuthMode, authF
           <h3>Build your trusted profile and access the private growth network.</h3>
           <p>Start free. Upgrade your visibility and partner access as your profile matures.</p>
         </div>
-        <div className="hero-actions">
-          <button type="button" className="cta-primary" onClick={() => setAuthMode('signup')}>Join the network</button>
-          <button type="button" className="cta-ghost" onClick={() => setAuthMode('login')}>Sign in</button>
+        <div className="hero-actions social-auth-row">
+          <button type="button" className="social-btn social-btn-signup social-btn-lg" onClick={() => setAuthMode('signup')}>Sign up</button>
+          <button type="button" className="social-btn social-btn-login social-btn-lg" onClick={() => setAuthMode('login')}>Log in</button>
         </div>
       </section>
 
       <section className="panel auth-panel">
         <div className="auth-toggle">
-          <button type="button" className={authMode === 'login' ? 'active' : ''} aria-pressed={authMode === 'login'} onClick={() => setAuthMode('login')}>Sign in</button>
-          <button type="button" className={authMode === 'signup' ? 'active' : ''} aria-pressed={authMode === 'signup'} onClick={() => setAuthMode('signup')}>Create account</button>
+          <button type="button" className={`social-btn ${authMode === 'login' ? 'social-btn-signup' : 'social-btn-login'}`} aria-pressed={authMode === 'login'} onClick={() => setAuthMode('login')}>Log in</button>
+          <button type="button" className={`social-btn ${authMode === 'signup' ? 'social-btn-signup' : 'social-btn-login'}`} aria-pressed={authMode === 'signup'} onClick={() => setAuthMode('signup')}>Sign up</button>
         </div>
 
         <form onSubmit={handleAuthSubmit} className="auth-form" aria-label={authMode === 'login' ? 'Sign in form' : 'Create account form'}>
@@ -234,7 +234,7 @@ function LandingPage({ heroStats, previewFeedItems, authMode, setAuthMode, authF
               </select>
             </label>
           )}
-          <button type="submit">{authMode === 'login' ? 'Sign in' : 'Create account'}</button>
+          <button type="submit" className="social-btn social-btn-signup social-btn-lg auth-submit-btn">{authMode === 'login' ? 'Log in' : 'Sign up'}</button>
         </form>
 
         {authMessage && <p className="auth-message" role="status" aria-live="polite">{authMessage}</p>}

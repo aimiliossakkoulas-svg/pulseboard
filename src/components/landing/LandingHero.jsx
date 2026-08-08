@@ -24,8 +24,8 @@ function LandingHero({ heroStats, onSignupClick, onSigninClick }) {
             No noise. No vanity metrics. Just trust.
           </p>
           <div className="hero-actions landing-cta-row landing-fade-in" style={{ animationDelay: '240ms' }}>
-            <button type="button" className="cta-primary cta-glow" onClick={onSignupClick}>Join the network</button>
-            <button type="button" className="cta-ghost" onClick={onSigninClick}>Sign in</button>
+            <button type="button" className="social-btn social-btn-signup social-btn-lg" onClick={onSignupClick}>Sign up</button>
+            <button type="button" className="social-btn social-btn-login social-btn-lg" onClick={onSigninClick}>Log in</button>
           </div>
         </div>
 

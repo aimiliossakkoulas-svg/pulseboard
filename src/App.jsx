@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import NavBar from './components/NavBar';
 import LandingPage from './pages/LandingPage';
+import AuthPage from './pages/AuthPage';
 import DashboardPage from './pages/DashboardPage';
 import MarketplacePage from './pages/MarketplacePage';
 import CompanyProfilePage from './pages/CompanyProfilePage';
@@ -366,11 +367,8 @@ function App() {
         <Route
           path="/login"
           element={
-            <LandingPage
-              heroStats={heroStats}
-              previewFeedItems={previewFeedItems}
-              authMode={authMode}
-              setAuthMode={setAuthMode}
+            <AuthPage
+              mode="login"
               authForm={authForm}
               setAuthForm={setAuthForm}
               authMessage={authMessage}
@@ -381,11 +379,8 @@ function App() {
         <Route
           path="/signup"
           element={
-            <LandingPage
-              heroStats={heroStats}
-              previewFeedItems={previewFeedItems}
-              authMode={authMode}
-              setAuthMode={setAuthMode}
+            <AuthPage
+              mode="signup"
               authForm={authForm}
               setAuthForm={setAuthForm}
               authMessage={authMessage}
