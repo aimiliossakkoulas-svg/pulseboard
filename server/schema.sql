@@ -11,8 +11,17 @@ CREATE TABLE IF NOT EXISTS users (
   email VARCHAR(255) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
   role VARCHAR(50) NOT NULL DEFAULT 'Founder',
+  company_id VARCHAR(64),
+  company_name VARCHAR(255),
+  company_domain VARCHAR(255),
+  linkedin_company_url VARCHAR(500),
+  company_verified BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS users_unique_founder_company
+ON users (company_id)
+WHERE role = 'Founder' AND company_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS sessions (
   id SERIAL PRIMARY KEY,

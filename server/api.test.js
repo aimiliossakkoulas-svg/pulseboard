@@ -30,13 +30,29 @@ test('auth guards and protected writes work across API endpoints', async (t) => 
       name: 'API Tester',
       email: uniqueEmail,
       password: 'verysecure123',
-      role: 'Founder'
+      role: 'Founder',
+      companyName: 'API Test Labs',
+      companyDomain: 'example.com'
     })
   });
   assert.equal(signup.status, 201);
   const signupData = await getJson(signup);
   assert.equal(signupData.user.email, uniqueEmail);
   assert.ok(signupData.token);
+
+  const duplicateFounder = await fetch(`${baseUrl}/api/auth/signup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: 'Second Founder',
+      email: `api-founder-2-${Date.now()}@example.com`,
+      password: 'verysecure123',
+      role: 'Founder',
+      companyName: 'API Test Labs',
+      companyDomain: 'example.com'
+    })
+  });
+  assert.equal(duplicateFounder.status, 409);
 
   const forbiddenPost = await fetch(`${baseUrl}/api/posts`, {
     method: 'POST',

@@ -515,6 +515,33 @@ async function queryWithFallback(text, params, fallbackFn) {
 async function bootstrapDatabase() {
   try {
     await query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        role VARCHAR(50) NOT NULL DEFAULT 'Founder',
+        company_id VARCHAR(64),
+        company_name VARCHAR(255),
+        company_domain VARCHAR(255),
+        linkedin_company_url VARCHAR(500),
+        company_verified BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await query('ALTER TABLE users ADD COLUMN IF NOT EXISTS company_id VARCHAR(64)');
+    await query('ALTER TABLE users ADD COLUMN IF NOT EXISTS company_name VARCHAR(255)');
+    await query('ALTER TABLE users ADD COLUMN IF NOT EXISTS company_domain VARCHAR(255)');
+    await query('ALTER TABLE users ADD COLUMN IF NOT EXISTS linkedin_company_url VARCHAR(500)');
+    await query('ALTER TABLE users ADD COLUMN IF NOT EXISTS company_verified BOOLEAN NOT NULL DEFAULT FALSE');
+    await query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS users_unique_founder_company
+      ON users (company_id)
+      WHERE role = 'Founder' AND company_id IS NOT NULL
+    `);
+
+    await query(`
       CREATE TABLE IF NOT EXISTS sessions (
         id SERIAL PRIMARY KEY,
         token VARCHAR(255) UNIQUE NOT NULL,
@@ -687,11 +714,18 @@ function normalizeUserRow(row) {
     id: String(row.id),
     name: row.name,
     email: row.email,
-    role: row.role
+    role: row.role,
+    companyId: row.company_id || '',
+    companyName: row.company_name || '',
+    companyDomain: row.company_domain || '',
+    linkedinCompanyUrl: row.linkedin_company_url || '',
+    companyVerified: Boolean(row.company_verified)
   };
 }
 
-export async function createUser({ name, email, password, role }) {
+export async function createUser({ name, email, password, role, companyName = '', companyDomain = '', linkedinCompanyUrl = '' }) {
+  const companyId = companyName ? toCompanyId(companyName) : '';
+
   const existing = await query('SELECT id FROM users WHERE email = $1', [email]);
   if (existing.rowCount > 0) {
     const error = new Error('A user with that email already exists');
@@ -699,9 +733,31 @@ export async function createUser({ name, email, password, role }) {
     throw error;
   }
 
+  if (role === 'Founder' && companyId) {
+    const founderClaim = await query('SELECT id FROM users WHERE role = $1 AND company_id = $2 LIMIT 1', ['Founder', companyId]);
+    if (founderClaim.rowCount > 0) {
+      const error = new Error('This company already has a founder account. Ask the founder to invite employees.');
+      error.statusCode = 409;
+      throw error;
+    }
+  }
+
   const created = await query(
-    'INSERT INTO users (name, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING id, name, email, role',
-    [name, email, hashPassword(password), role || 'Founder']
+    `INSERT INTO users (
+      name, email, password_hash, role, company_id, company_name, company_domain, linkedin_company_url, company_verified
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    RETURNING id, name, email, role, company_id, company_name, company_domain, linkedin_company_url, company_verified`,
+    [
+      name,
+      email,
+      hashPassword(password),
+      role || 'Founder',
+      companyId || null,
+      companyName || null,
+      companyDomain || null,
+      linkedinCompanyUrl || null,
+      Boolean(companyDomain)
+    ]
   );
 
   const user = normalizeUserRow(created.rows[0]);
@@ -711,7 +767,11 @@ export async function createUser({ name, email, password, role }) {
 
 export async function authenticateUser({ email, password }) {
   const login = await query(
-    'SELECT id, name, email, role FROM users WHERE email = $1 AND password_hash = $2',
+    `SELECT
+      id, name, email, role,
+      company_id, company_name, company_domain, linkedin_company_url, company_verified
+     FROM users
+     WHERE email = $1 AND password_hash = $2`,
     [email, hashPassword(password)]
   );
 
@@ -1220,7 +1280,9 @@ export async function connectHubspot(companyId, payload) {
 
 export async function getUserFromSession(token) {
   const result = await queryWithFallback(
-    `SELECT u.id, u.name, u.email, u.role
+    `SELECT
+      u.id, u.name, u.email, u.role,
+      u.company_id, u.company_name, u.company_domain, u.linkedin_company_url, u.company_verified
      FROM sessions s
      INNER JOIN users u ON u.id = s.user_id
      WHERE s.token = $1 AND s.expires_at > NOW()

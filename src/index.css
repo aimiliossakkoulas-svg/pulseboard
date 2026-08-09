@@ -1113,6 +1113,22 @@ select {
   gap: var(--space-sm);
 }
 
+.auth-linkedin-sync-wrap {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.auth-linkedin-sync-wrap .auth-page-switch-btn {
+  min-height: 40px;
+  border-radius: var(--radius-sm);
+}
+
+.auth-linkedin-sync-message {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
 .auth-field span {
   font-size: var(--text-sm);
   letter-spacing: 0.02em;

@@ -1,8 +1,50 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 
-function AuthPage({ mode, authForm, setAuthForm, authMessage, handleAuthSubmit, authSubmitting = false }) {
+const COMPANY_BOUND_ROLES = new Set(['Founder', 'Vendor', 'Employee', 'Admin']);
+
+function AuthPage({ mode, authForm, setAuthForm, authMessage, handleAuthSubmit, authSubmitting = false, apiUrl }) {
   const isLogin = mode === 'login';
+  const requiresCompanyIdentity = COMPANY_BOUND_ROLES.has(authForm.role);
+  const [syncingLinkedin, setSyncingLinkedin] = useState(false);
+  const [syncMessage, setSyncMessage] = useState('');
+
+  async function handleLinkedinSync() {
+    if (!authForm.linkedinCompanyUrl?.trim() || !apiUrl) {
+      setSyncMessage('Add your LinkedIn company URL first.');
+      return;
+    }
+
+    setSyncingLinkedin(true);
+    setSyncMessage('');
+
+    try {
+      const response = await fetch(`${apiUrl}/api/company-sync/linkedin-preview`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          linkedinCompanyUrl: authForm.linkedinCompanyUrl,
+          companyName: authForm.companyName
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Unable to sync from LinkedIn');
+      }
+
+      setAuthForm({
+        ...authForm,
+        companyName: data.companyName || authForm.companyName,
+        companyDomain: data.companyDomain || authForm.companyDomain
+      });
+      setSyncMessage('LinkedIn preview synced. Review company name/domain before sign up.');
+    } catch (error) {
+      setSyncMessage(error.message || 'Unable to sync from LinkedIn');
+    } finally {
+      setSyncingLinkedin(false);
+    }
+  }
 
   return (
     <div className="auth-page auth-page-facebook">
@@ -76,10 +118,67 @@ function AuthPage({ mode, authForm, setAuthForm, authMessage, handleAuthSubmit, 
                   onChange={(e) => setAuthForm({ ...authForm, role: e.target.value })}
                 >
                   <option value="Founder">Founder</option>
+                  <option value="Employee">Employee</option>
+                  <option value="Admin">Admin</option>
                   <option value="Agent">Agent / Advisor</option>
                   <option value="Vendor">Vendor / Partner</option>
                 </select>
               </label>
+            )}
+
+            {!isLogin && (
+              <label className="auth-field">
+                <span>Company name</span>
+                <input
+                  type="text"
+                  placeholder="Alpha Labs"
+                  required={requiresCompanyIdentity}
+                  disabled={authSubmitting || syncingLinkedin}
+                  value={authForm.companyName}
+                  onChange={(e) => setAuthForm({ ...authForm, companyName: e.target.value })}
+                />
+              </label>
+            )}
+
+            {!isLogin && (
+              <label className="auth-field">
+                <span>Company domain</span>
+                <input
+                  type="text"
+                  placeholder="alphalabs.com"
+                  required={requiresCompanyIdentity}
+                  disabled={authSubmitting || syncingLinkedin}
+                  value={authForm.companyDomain}
+                  onChange={(e) => setAuthForm({ ...authForm, companyDomain: e.target.value })}
+                />
+              </label>
+            )}
+
+            {!isLogin && (
+              <div className="auth-linkedin-sync-wrap">
+                <label className="auth-field">
+                  <span>LinkedIn company URL (optional)</span>
+                  <input
+                    type="url"
+                    placeholder="https://www.linkedin.com/company/alpha-labs"
+                    disabled={authSubmitting || syncingLinkedin}
+                    value={authForm.linkedinCompanyUrl}
+                    onChange={(e) => setAuthForm({ ...authForm, linkedinCompanyUrl: e.target.value })}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="auth-page-switch-btn"
+                  onClick={handleLinkedinSync}
+                  disabled={authSubmitting || syncingLinkedin || !authForm.linkedinCompanyUrl?.trim()}
+                >
+                  {syncingLinkedin ? 'Syncing...' : 'Sync company from LinkedIn'}
+                </button>
+                {syncMessage && <p className="auth-linkedin-sync-message">{syncMessage}</p>}
+                {!requiresCompanyIdentity && (
+                  <p className="auth-linkedin-sync-message">Agents can sign up without a company claim.</p>
+                )}
+              </div>
             )}
 
             {authMessage && (

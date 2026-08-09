@@ -134,8 +134,14 @@ function queryMemory(text, params = []) {
     return createMemoryResult(match ? [{ id: match.id }] : []);
   }
 
+  if (normalized.includes('SELECT ID FROM USERS WHERE ROLE = $1 AND COMPANY_ID = $2')) {
+    const [role, companyId] = params;
+    const match = memoryStore.users.find((user) => user.role === role && user.company_id === companyId);
+    return createMemoryResult(match ? [{ id: match.id }] : []);
+  }
+
   if (normalized.includes('INSERT INTO USERS')) {
-    const [name, email, passwordHash, role] = params;
+    const [name, email, passwordHash, role, companyId, companyName, companyDomain, linkedinCompanyUrl, companyVerified] = params;
     const existing = memoryStore.users.find((user) => user.email === email);
     if (existing) {
       const error = new Error('duplicate user');
@@ -148,17 +154,42 @@ function queryMemory(text, params = []) {
       name,
       email,
       role: role || 'Founder',
-      password_hash: passwordHash
+      password_hash: passwordHash,
+      company_id: companyId || null,
+      company_name: companyName || null,
+      company_domain: companyDomain || null,
+      linkedin_company_url: linkedinCompanyUrl || null,
+      company_verified: Boolean(companyVerified)
     };
     memoryStore.users.push(user);
     persistMemoryStore();
-    return createMemoryResult([{ id: user.id, name: user.name, email: user.email, role: user.role }]);
+    return createMemoryResult([{
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      company_id: user.company_id,
+      company_name: user.company_name,
+      company_domain: user.company_domain,
+      linkedin_company_url: user.linkedin_company_url,
+      company_verified: user.company_verified
+    }]);
   }
 
-  if (normalized.includes('SELECT ID, NAME, EMAIL, ROLE FROM USERS WHERE EMAIL = $1 AND PASSWORD_HASH = $2')) {
+  if (normalized.includes('FROM USERS') && normalized.includes('WHERE EMAIL = $1 AND PASSWORD_HASH = $2')) {
     const [email, passwordHash] = params;
     const match = memoryStore.users.find((user) => user.email === email && user.password_hash === passwordHash);
-    return createMemoryResult(match ? [{ id: match.id, name: match.name, email: match.email, role: match.role }] : []);
+    return createMemoryResult(match ? [{
+      id: match.id,
+      name: match.name,
+      email: match.email,
+      role: match.role,
+      company_id: match.company_id,
+      company_name: match.company_name,
+      company_domain: match.company_domain,
+      linkedin_company_url: match.linkedin_company_url,
+      company_verified: match.company_verified
+    }] : []);
   }
 
   if (normalized.includes('SELECT ID, AUTHOR, CONTENT, CREATED_AT FROM POSTS ORDER BY CREATED_AT DESC')) {
@@ -216,7 +247,17 @@ function queryMemory(text, params = []) {
       return createMemoryResult([]);
     }
 
-    return createMemoryResult([{ id: user.id, name: user.name, email: user.email, role: user.role }]);
+    return createMemoryResult([{ 
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      company_id: user.company_id,
+      company_name: user.company_name,
+      company_domain: user.company_domain,
+      linkedin_company_url: user.linkedin_company_url,
+      company_verified: user.company_verified
+    }]);
   }
 
   throw new Error(`Unsupported query in memory fallback: ${text}`);

@@ -45,7 +45,15 @@ function App() {
     return window.localStorage.getItem('pulseboard-token') || '';
   });
   const [authMode, setAuthMode] = useState('login');
-  const [authForm, setAuthForm] = useState({ name: '', email: '', password: '', role: 'Founder' });
+  const [authForm, setAuthForm] = useState({
+    name: '',
+    email: '',
+    password: '',
+    role: 'Founder',
+    companyName: '',
+    companyDomain: '',
+    linkedinCompanyUrl: ''
+  });
   const [authMessage, setAuthMessage] = useState('');
   const [authSubmitting, setAuthSubmitting] = useState(false);
   const [activeSection, setActiveSection] = useState('profiles');
@@ -162,7 +170,15 @@ function App() {
       const endpoint = authMode === 'login' ? '/api/auth/login' : '/api/auth/signup';
       const payload = authMode === 'login'
         ? { email: authForm.email, password: authForm.password }
-        : { name: authForm.name, email: authForm.email, password: authForm.password, role: authForm.role };
+        : {
+            name: authForm.name,
+            email: authForm.email,
+            password: authForm.password,
+            role: authForm.role,
+            companyName: authForm.companyName,
+            companyDomain: authForm.companyDomain,
+            linkedinCompanyUrl: authForm.linkedinCompanyUrl
+          };
 
       const response = await fetch(`${API_URL}${endpoint}`, {
         method: 'POST',
@@ -181,7 +197,15 @@ function App() {
       if (data.token) {
         window.localStorage.setItem('pulseboard-token', data.token);
       }
-      setAuthForm({ name: '', email: '', password: '', role: 'Founder' });
+      setAuthForm({
+        name: '',
+        email: '',
+        password: '',
+        role: 'Founder',
+        companyName: '',
+        companyDomain: '',
+        linkedinCompanyUrl: ''
+      });
       const isSignup = authMode === 'signup';
       setAuthMessage(isSignup ? `Welcome aboard, ${data.user.name}` : `Welcome back, ${data.user.name}`);
       navigate(isSignup ? '/onboarding' : '/app');
@@ -358,6 +382,7 @@ function App() {
               authMessage={authMessage}
               handleAuthSubmit={handleAuthSubmit}
               authSubmitting={authSubmitting}
+              apiUrl={API_URL}
             />
           }
         />
@@ -371,6 +396,7 @@ function App() {
               authMessage={authMessage}
               handleAuthSubmit={handleAuthSubmit}
               authSubmitting={authSubmitting}
+              apiUrl={API_URL}
             />
           }
         />

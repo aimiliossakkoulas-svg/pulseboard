@@ -4,7 +4,14 @@ import { createUser, createPost, getCompanies, toggleMetricsSharing, connectHubs
 
 test('persists users, posts, and company updates', async () => {
   const uniqueEmail = `store-${Date.now()}@example.com`;
-  const signup = await createUser({ name: 'Test User', email: uniqueEmail, password: 'secret', role: 'Founder' });
+  const signup = await createUser({
+    name: 'Test User',
+    email: uniqueEmail,
+    password: 'secret',
+    role: 'Founder',
+    companyName: 'Store Test Labs',
+    companyDomain: 'example.com'
+  });
   assert.equal(signup.user.email, uniqueEmail);
   assert.ok(signup.token);
 

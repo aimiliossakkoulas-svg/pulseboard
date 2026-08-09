@@ -28,7 +28,8 @@ import {
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const VALID_ROLES = new Set(['Founder', 'Agent', 'Vendor']);
+const VALID_ROLES = new Set(['Founder', 'Agent', 'Vendor', 'Employee', 'Admin']);
+const COMPANY_BOUND_ROLES = new Set(['Founder', 'Vendor', 'Employee', 'Admin']);
 const COMPANY_ID_PATTERN = /^[a-z0-9-]{2,64}$/i;
 const METRIC_SOURCE_TYPES = new Set(['manual', 'csv', 'quickbooks', 'hubspot', 'stripe']);
 const METRIC_VERIFICATION_STATUSES = new Set(['verified', 'self-reported', 'reviewed']);
@@ -63,6 +64,61 @@ function readTrimmedText(value) {
 
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function toCompanyId(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 64);
+}
+
+function normalizeDomain(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return '';
+
+  const withoutScheme = raw.replace(/^https?:\/\//, '').replace(/^www\./, '');
+  return withoutScheme.split('/')[0].trim();
+}
+
+function isValidDomain(domain) {
+  return /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(domain);
+}
+
+function getEmailDomain(email) {
+  return String(email || '').toLowerCase().split('@')[1] || '';
+}
+
+function matchesCompanyDomain(emailDomain, companyDomain) {
+  if (!emailDomain || !companyDomain) return false;
+  return emailDomain === companyDomain || emailDomain.endsWith(`.${companyDomain}`);
+}
+
+function parseLinkedinCompanySlug(linkedinCompanyUrl) {
+  try {
+    const normalized = /^https?:\/\//i.test(linkedinCompanyUrl)
+      ? linkedinCompanyUrl
+      : `https://${linkedinCompanyUrl}`;
+    const url = new URL(normalized);
+    const host = url.hostname.toLowerCase();
+    if (!host.includes('linkedin.com')) return '';
+
+    const parts = url.pathname.split('/').filter(Boolean);
+    const companyIndex = parts.findIndex((part) => part.toLowerCase() === 'company');
+    if (companyIndex === -1 || !parts[companyIndex + 1]) return '';
+    return parts[companyIndex + 1].toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
+function toTitleCaseSlug(slug) {
+  return slug
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 }
 
 function toFiniteNumber(value) {
@@ -112,11 +168,39 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
+app.post('/api/company-sync/linkedin-preview', async (req, res) => {
+  const linkedinCompanyUrl = readTrimmedText(req.body?.linkedinCompanyUrl);
+  const providedCompanyName = readTrimmedText(req.body?.companyName);
+
+  if (!linkedinCompanyUrl) {
+    return res.status(400).json({ error: 'LinkedIn company URL is required' });
+  }
+
+  const slug = parseLinkedinCompanySlug(linkedinCompanyUrl);
+  if (!slug) {
+    return res.status(400).json({ error: 'Enter a valid LinkedIn company URL (e.g. linkedin.com/company/alpha-labs)' });
+  }
+
+  const inferredName = providedCompanyName || toTitleCaseSlug(slug);
+  const suggestedDomain = `${slug.replace(/[^a-z0-9-]/g, '')}.com`;
+
+  return res.json({
+    companyName: inferredName,
+    companyDomain: suggestedDomain,
+    linkedinCompanyUrl,
+    companyId: toCompanyId(inferredName),
+    syncMode: 'preview'
+  });
+});
+
 app.post('/api/auth/signup', async (req, res) => {
   const name = readTrimmedText(req.body?.name);
   const email = readTrimmedText(req.body?.email).toLowerCase();
   const password = readTrimmedText(req.body?.password);
   const role = readTrimmedText(req.body?.role) || 'Founder';
+  const companyName = readTrimmedText(req.body?.companyName);
+  const companyDomain = normalizeDomain(req.body?.companyDomain);
+  const linkedinCompanyUrl = readTrimmedText(req.body?.linkedinCompanyUrl);
 
   if (!name || !email || !password) {
     return res.status(400).json({ error: 'Name, email, and password are required' });
@@ -135,11 +219,30 @@ app.post('/api/auth/signup', async (req, res) => {
   }
 
   if (!VALID_ROLES.has(role)) {
-    return res.status(400).json({ error: 'Role must be Founder, Agent, or Vendor' });
+    return res.status(400).json({ error: 'Role must be Founder, Agent, Vendor, Employee, or Admin' });
+  }
+
+  if (COMPANY_BOUND_ROLES.has(role)) {
+    if (!companyName || companyName.length < 2 || companyName.length > 255) {
+      return res.status(400).json({ error: 'Company name is required and must be between 2 and 255 characters' });
+    }
+
+    if (!companyDomain || !isValidDomain(companyDomain)) {
+      return res.status(400).json({ error: 'A valid company domain is required (e.g. alpha.com)' });
+    }
+
+    const emailDomain = getEmailDomain(email);
+    if (!matchesCompanyDomain(emailDomain, companyDomain)) {
+      return res.status(400).json({ error: 'Use your work email matching the company domain' });
+    }
+
+    if (linkedinCompanyUrl && !parseLinkedinCompanySlug(linkedinCompanyUrl)) {
+      return res.status(400).json({ error: 'LinkedIn URL must look like linkedin.com/company/<company>' });
+    }
   }
 
   try {
-    const result = await createUser({ name, email, password, role });
+    const result = await createUser({ name, email, password, role, companyName, companyDomain, linkedinCompanyUrl });
     res.status(201).json(result);
   } catch (error) {
     const status = error.statusCode || 500;
