@@ -105,6 +105,25 @@ function readTrimmedText(value) {
   return value.trim();
 }
 
+function readBooleanEnv(value, fallback = false) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) {
+    return fallback;
+  }
+
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) {
+    return true;
+  }
+
+  if (['0', 'false', 'no', 'off'].includes(normalized)) {
+    return false;
+  }
+
+  return fallback;
+}
+
+const STRIPE_MANAGED_PAYMENTS_ENABLED = readBooleanEnv(process.env.STRIPE_MANAGED_PAYMENTS_ENABLED, false);
+
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
@@ -846,7 +865,7 @@ app.post('/api/engagements/:engagementId/milestones/:milestoneId/checkout', requ
         success_url: `${origin}/app?checkout=success&engagement=${engagementId}`,
         cancel_url: `${origin}/app?checkout=cancel&engagement=${engagementId}`,
         managed_payments: {
-          enabled: false
+          enabled: STRIPE_MANAGED_PAYMENTS_ENABLED
         },
         line_items: [
           {

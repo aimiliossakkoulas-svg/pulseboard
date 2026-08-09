@@ -73,13 +73,14 @@ To enable paid consultancy milestones in production, set these backend environme
 2. STRIPE_WEBHOOK_SECRET
 3. WEB_BASE_URL
 
+Optional API service variable:
+1. STRIPE_MANAGED_PAYMENTS_ENABLED (default false)
+
 Example values:
-- STRIPE_SECRET_KEY=sk_live_...
-- STRIPE_WEBHOOK_SECRET=whsec_...
-- WEB_BASE_URL=https://alluring-solace-production-1d29.up.railway.app
+- STRIPE_MANAGED_PAYMENTS_ENABLED=false
 
 Webhook endpoint to configure in Stripe:
-- POST /api/billing/stripe/webhook
+- Keep STRIPE_MANAGED_PAYMENTS_ENABLED=false unless your Stripe managed payments setup is fully configured.
 
 Notes:
 - If Stripe keys are not set, checkout falls back to manual funding mode so the workflow still works.
