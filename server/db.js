@@ -6,6 +6,7 @@ import { Pool } from 'pg';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const fallbackStorePath = process.env.STORE_FILE_PATH || path.join(__dirname, 'data', 'store.json');
+const schemaFilePath = path.join(__dirname, 'schema.sql');
 
 function hasUnresolvedTemplate(value) {
   return /\$\{\{[^}]+\}\}/.test(String(value || ''));
@@ -60,6 +61,29 @@ const memoryStore = {
 
 let databaseReady = false;
 let usingMemoryFallback = false;
+
+async function ensureSchema() {
+  try {
+    if (!fs.existsSync(schemaFilePath)) {
+      console.warn('Schema file not found, skipping PostgreSQL schema bootstrap.');
+      return;
+    }
+
+    const schemaSql = fs.readFileSync(schemaFilePath, 'utf8');
+    if (!schemaSql.trim()) {
+      console.warn('Schema file is empty, skipping PostgreSQL schema bootstrap.');
+      return;
+    }
+
+    await pool.query(schemaSql);
+    console.log('PostgreSQL schema bootstrap complete');
+  } catch (error) {
+    const details = [error?.code, error?.message]
+      .filter(Boolean)
+      .join(' | ');
+    console.warn(`PostgreSQL schema bootstrap failed: ${details || 'unknown error'}`);
+  }
+}
 
 function loadMemoryStore() {
   try {
@@ -128,6 +152,7 @@ async function ensureDatabase() {
 
   try {
     await pool.query('SELECT NOW()');
+    await ensureSchema();
     databaseReady = true;
     console.log('Connected to PostgreSQL');
   } catch (error) {
