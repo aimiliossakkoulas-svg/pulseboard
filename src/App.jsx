@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import NavBar from './components/NavBar';
 import LandingPage from './pages/LandingPage';
-import AuthPage from './pages/AuthPage';
 import DashboardPage from './pages/DashboardPage';
 import MarketplacePage from './pages/MarketplacePage';
 import CompanyProfilePage from './pages/CompanyProfilePage';
@@ -25,8 +23,7 @@ function App() {
   const [author, setAuthor] = useState('Guest');
   const [content, setContent] = useState('');
   const [status, setStatus] = useState('Loading posts...');
-  const [companies, setCompanies] = useState([]);
-  const [companiesLoading, setCompaniesLoading] = useState(true);
+  const [companies, setCompanies] = useState(fallbackCompanies);
   const [vendors, setVendors] = useState(fallbackVendors);
   const [recommendedVendors, setRecommendedVendors] = useState(fallbackVendors.map((vendor) => ({
     ...vendor,
@@ -252,7 +249,6 @@ function App() {
   }
 
   async function loadNetworkData() {
-    setCompaniesLoading(true);
     try {
       const [companiesRes, vendorsRes, meetingsRes, feedRes] = await Promise.all([
         fetch(`${API_URL}/api/companies/ranked`),
@@ -267,9 +263,6 @@ function App() {
         const companiesData = await companiesRes.json();
         setCompanies(companiesData);
         preferredCompanyId = companiesData[0]?.id || '';
-      } else {
-        setCompanies(fallbackCompanies);
-        preferredCompanyId = fallbackCompanies[0]?.id || '';
       }
 
       if (vendorsRes.ok) {
@@ -305,9 +298,6 @@ function App() {
       }
     } catch (error) {
       console.warn('Failed to load network data', error);
-      setCompanies(fallbackCompanies);
-    } finally {
-      setCompaniesLoading(false);
     }
   }
 
@@ -343,12 +333,7 @@ function App() {
 
   if (!user) {
     return (
-      <>
-        <NavBar
-          onSignupClick={() => { setAuthMode('signup'); navigate('/signup'); }}
-          onSigninClick={() => { setAuthMode('login'); navigate('/login'); }}
-        />
-        <Routes>
+      <Routes>
         <Route
           path="/"
           element={
@@ -367,8 +352,11 @@ function App() {
         <Route
           path="/login"
           element={
-            <AuthPage
-              mode="login"
+            <LandingPage
+              heroStats={heroStats}
+              previewFeedItems={previewFeedItems}
+              authMode={authMode}
+              setAuthMode={setAuthMode}
               authForm={authForm}
               setAuthForm={setAuthForm}
               authMessage={authMessage}
@@ -379,8 +367,11 @@ function App() {
         <Route
           path="/signup"
           element={
-            <AuthPage
-              mode="signup"
+            <LandingPage
+              heroStats={heroStats}
+              previewFeedItems={previewFeedItems}
+              authMode={authMode}
+              setAuthMode={setAuthMode}
               authForm={authForm}
               setAuthForm={setAuthForm}
               authMessage={authMessage}
@@ -389,15 +380,12 @@ function App() {
           }
         />
         <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </>
+      </Routes>
     );
   }
 
   return (
-    <>
-      <NavBar user={user} onLogout={handleLogout} />
-      <Routes>
+    <Routes>
       <Route path="/" element={<Navigate to="/app" replace />} />
       <Route
         path="/app"
@@ -409,7 +397,6 @@ function App() {
             activeSection={activeSection}
             setActiveSection={setActiveSection}
             companies={companies}
-            companiesLoading={companiesLoading}
             meetingsData={meetingsData}
             adviceRequests={adviceRequests}
             status={status}
@@ -461,8 +448,7 @@ function App() {
         }
       />
       <Route path="*" element={<Navigate to="/app" replace />} />
-      </Routes>
-    </>
+    </Routes>
   );
 }
 

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import CompanyCardSkeleton from '../components/CompanyCardSkeleton';
 
 function DashboardPage({
   user,
@@ -9,7 +8,6 @@ function DashboardPage({
   activeSection,
   setActiveSection,
   companies,
-  companiesLoading,
   meetingsData,
   adviceRequests,
   status,
@@ -97,21 +95,10 @@ function DashboardPage({
           )}
         </div>
         <div className="company-grid">
-          {companiesLoading && (
-            <>
-              <CompanyCardSkeleton />
-              <CompanyCardSkeleton />
-              <CompanyCardSkeleton />
-            </>
+          {filteredCompanies.length === 0 && (
+            <p className="search-empty">No companies match &ldquo;{search}&rdquo;</p>
           )}
-          {!companiesLoading && filteredCompanies.length === 0 && (
-            <p className="search-empty">
-              {search.trim()
-                ? <>No companies match &ldquo;{search}&rdquo;</>
-                : 'No company profiles available yet.'}
-            </p>
-          )}
-          {!companiesLoading && filteredCompanies.map((company) => {
+          {filteredCompanies.map((company) => {
             const canShare = company.metricsSharing === 'accepted';
             return (
               <article key={company.id} className="company-card social-card">
@@ -214,16 +201,7 @@ function DashboardPage({
           <span className="section-meta">Ranked by signal strength and network compatibility</span>
         </div>
         <div className="suggested-grid">
-          {companiesLoading ? (
-            [0, 1, 2].map((i) => (
-              <article key={i} className="suggested-card skeleton-card" aria-hidden="true">
-                <div className="skeleton skeleton-text skeleton-text-xs" style={{ width: '40%' }} />
-                <div className="skeleton skeleton-text skeleton-text-lg" />
-                <div className="skeleton skeleton-text skeleton-text-sm" />
-                <div className="skeleton skeleton-text skeleton-text-block" />
-              </article>
-            ))
-          ) : companies.slice(0, 3).map((company, i) => {
+          {companies.slice(0, 3).map((company, i) => {
             const growth = parseFloat(company.growth?.replace(/[^0-9.]/g, '') || 0);
             const retention = parseFloat(company.retention?.replace('%', '') || 0);
             const fitReasons = [
