@@ -17,11 +17,13 @@ const fallbackEngagementMessages = [];
 const fallbackMilestones = [];
 const fallbackCalls = [];
 const fallbackOutcomes = [];
+const fallbackNotifications = [];
 let fallbackIntroRequestNextId = 1;
 let fallbackEngagementNextId = 1;
 let fallbackMessageNextId = 1;
 let fallbackMilestoneNextId = 1;
 let fallbackCallNextId = 1;
+let fallbackNotificationNextId = 1;
 
 function ensureDataDirectory() {
   if (!fs.existsSync(dataDir)) {
@@ -172,6 +174,10 @@ function loadPersistedFallbackStore() {
     if (Array.isArray(parsed.engagementOutcomes)) {
       fallbackOutcomes.splice(0, fallbackOutcomes.length, ...parsed.engagementOutcomes);
     }
+    if (Array.isArray(parsed.notifications)) {
+      fallbackNotifications.splice(0, fallbackNotifications.length, ...parsed.notifications);
+      fallbackNotificationNextId = fallbackNotifications.reduce((max, r) => Math.max(max, r.id + 1), 1);
+    }
   } catch (error) {
     console.warn('Unable to load persisted fallback store. Continuing with seeded data.');
   }
@@ -200,7 +206,8 @@ function persistFallbackStore() {
         engagementMessages: fallbackEngagementMessages,
         engagementMilestones: fallbackMilestones,
         engagementCalls: fallbackCalls,
-        engagementOutcomes: fallbackOutcomes
+        engagementOutcomes: fallbackOutcomes,
+        notifications: fallbackNotifications
       }, null, 2),
       'utf8'
     );
@@ -702,11 +709,15 @@ async function bootstrapDatabase() {
         title VARCHAR(255) NOT NULL,
         amount DOUBLE PRECISION NOT NULL DEFAULT 0,
         status VARCHAR(30) NOT NULL DEFAULT 'planned',
+        payment_provider VARCHAR(30),
+        payment_reference VARCHAR(255),
         due_date TIMESTAMP,
         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    await query('ALTER TABLE engagement_milestones ADD COLUMN IF NOT EXISTS payment_provider VARCHAR(30)');
+    await query('ALTER TABLE engagement_milestones ADD COLUMN IF NOT EXISTS payment_reference VARCHAR(255)');
 
     await query(`
       CREATE TABLE IF NOT EXISTS engagement_calls (
@@ -732,6 +743,19 @@ async function bootstrapDatabase() {
         current_pipeline DOUBLE PRECISION NOT NULL DEFAULT 0,
         roi_percent DOUBLE PRECISION NOT NULL DEFAULT 0,
         last_updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS user_notifications (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        type VARCHAR(60) NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        body TEXT NOT NULL,
+        related_engagement_id INTEGER REFERENCES engagements(id) ON DELETE SET NULL,
+        read_at TIMESTAMP,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
@@ -1750,7 +1774,17 @@ export async function addEngagementMessage({ authUser, engagementId, channel = '
     }
   );
 
-  return parseEngagementMessageRow(result.rows[0]);
+  const message = parseEngagementMessageRow(result.rows[0]);
+  if (String(workspace.engagement.requesterUserId) !== String(authUser.id)) {
+    await createUserNotification({
+      userId: workspace.engagement.requesterUserId,
+      type: 'engagement-message',
+      title: `New message in engagement #${workspace.engagement.id}`,
+      body: `${authUser.name}: ${body.slice(0, 160)}`,
+      relatedEngagementId: workspace.engagement.id,
+    });
+  }
+  return message;
 }
 
 export async function getEngagementMessages(authUser, engagementId) {
@@ -1785,9 +1819,9 @@ export async function addEngagementMilestone({ authUser, engagementId, title, am
   const normalizedAmount = Math.max(0, Number(amount) || 0);
 
   const result = await queryWithFallback(
-    `INSERT INTO engagement_milestones (engagement_id, title, amount, status, due_date, created_at, updated_at)
-     VALUES ($1, $2, $3, 'planned', $4, $5, $5)
-     RETURNING id, engagement_id, title, amount, status, due_date, created_at, updated_at`,
+    `INSERT INTO engagement_milestones (engagement_id, title, amount, status, payment_provider, payment_reference, due_date, created_at, updated_at)
+     VALUES ($1, $2, $3, 'planned', NULL, NULL, $4, $5, $5)
+     RETURNING id, engagement_id, title, amount, status, payment_provider, payment_reference, due_date, created_at, updated_at`,
     [workspace.engagement.id, title, normalizedAmount, dueDate, now],
     () => {
       const row = {
@@ -1806,6 +1840,8 @@ export async function addEngagementMilestone({ authUser, engagementId, title, am
         title,
         amount: normalizedAmount,
         status: 'planned',
+        paymentProvider: '',
+        paymentReference: '',
         dueDate: dueDate || null,
         createdAt: now,
         updatedAt: now,
@@ -1821,7 +1857,7 @@ export async function addEngagementMilestone({ authUser, engagementId, title, am
 export async function getEngagementMilestones(authUser, engagementId) {
   const workspace = await getEngagementWorkspace(authUser, engagementId);
   const result = await queryWithFallback(
-    `SELECT id, engagement_id, title, amount, status, due_date, created_at, updated_at
+    `SELECT id, engagement_id, title, amount, status, payment_provider, payment_reference, due_date, created_at, updated_at
      FROM engagement_milestones WHERE engagement_id = $1 ORDER BY created_at ASC`,
     [workspace.engagement.id],
     () => ({
@@ -1835,6 +1871,8 @@ export async function getEngagementMilestones(authUser, engagementId) {
           title: entry.title,
           amount: entry.amount,
           status: entry.status,
+          payment_provider: entry.paymentProvider || null,
+          payment_reference: entry.paymentReference || null,
           due_date: entry.dueDate,
           created_at: entry.createdAt,
           updated_at: entry.updatedAt,
@@ -1847,12 +1885,17 @@ export async function getEngagementMilestones(authUser, engagementId) {
 export async function updateEngagementMilestoneStatus({ authUser, engagementId, milestoneId, status }) {
   const workspace = await getEngagementWorkspace(authUser, engagementId);
   const nextStatus = MILESTONE_STATUSES.has(status) ? status : 'planned';
+  if (nextStatus === 'paid' && !['Founder', 'Admin'].includes(String(authUser.role || ''))) {
+    const error = new Error('Only Founder or Admin can mark milestones as paid');
+    error.statusCode = 403;
+    throw error;
+  }
   const now = new Date().toISOString();
   const result = await queryWithFallback(
     `UPDATE engagement_milestones
      SET status = $3, updated_at = $4
      WHERE id = $1 AND engagement_id = $2
-     RETURNING id, engagement_id, title, amount, status, due_date, created_at, updated_at`,
+     RETURNING id, engagement_id, title, amount, status, payment_provider, payment_reference, due_date, created_at, updated_at`,
     [milestoneId, workspace.engagement.id, nextStatus, now],
     () => {
       const milestone = fallbackMilestones.find((entry) => entry.id === milestoneId && entry.engagementId === workspace.engagement.id);
@@ -1868,6 +1911,8 @@ export async function updateEngagementMilestoneStatus({ authUser, engagementId, 
           title: milestone.title,
           amount: milestone.amount,
           status: milestone.status,
+          payment_provider: milestone.paymentProvider || null,
+          payment_reference: milestone.paymentReference || null,
           due_date: milestone.dueDate,
           created_at: milestone.createdAt,
           updated_at: milestone.updatedAt,
@@ -1881,7 +1926,15 @@ export async function updateEngagementMilestoneStatus({ authUser, engagementId, 
     error.statusCode = 404;
     throw error;
   }
-  return parseMilestoneRow(result.rows[0]);
+  const updated = parseMilestoneRow(result.rows[0]);
+  await createUserNotification({
+    userId: workspace.engagement.requesterUserId,
+    type: 'milestone-status',
+    title: `Milestone updated to ${updated.status}`,
+    body: `${updated.title} is now ${updated.status}.`,
+    relatedEngagementId: workspace.engagement.id,
+  });
+  return updated;
 }
 
 export async function scheduleEngagementCall({ authUser, engagementId, provider, meetingUrl, agenda = '', scheduledAt }) {
@@ -1919,7 +1972,15 @@ export async function scheduleEngagementCall({ authUser, engagementId, provider,
     }
   );
 
-  return parseCallRow(result.rows[0]);
+  const call = parseCallRow(result.rows[0]);
+  await createUserNotification({
+    userId: workspace.engagement.requesterUserId,
+    type: 'engagement-call',
+    title: 'Call scheduled',
+    body: `${provider.toUpperCase()} call scheduled for ${new Date(scheduledAt).toLocaleString()}`,
+    relatedEngagementId: workspace.engagement.id,
+  });
+  return call;
 }
 
 export async function getEngagementCalls(authUser, engagementId) {
@@ -2013,7 +2074,268 @@ export async function upsertEngagementOutcome({ authUser, engagementId, baseline
     }
   );
 
-  return parseOutcomeRow(result.rows[0]);
+  const outcome = parseOutcomeRow(result.rows[0]);
+  await createUserNotification({
+    userId: workspace.engagement.requesterUserId,
+    type: 'engagement-outcome',
+    title: 'Outcome snapshot updated',
+    body: `ROI is now ${outcome.roiPercent.toFixed(2)}% for engagement #${workspace.engagement.id}.`,
+    relatedEngagementId: workspace.engagement.id,
+  });
+  return outcome;
+}
+
+export async function getEngagementMilestoneById(authUser, engagementId, milestoneId) {
+  const workspace = await getEngagementWorkspace(authUser, engagementId);
+  const result = await queryWithFallback(
+    `SELECT id, engagement_id, title, amount, status, payment_provider, payment_reference, due_date, created_at, updated_at
+     FROM engagement_milestones
+     WHERE id = $1 AND engagement_id = $2
+     LIMIT 1`,
+    [milestoneId, workspace.engagement.id],
+    () => {
+      const found = fallbackMilestones.find((entry) => entry.id === milestoneId && entry.engagementId === workspace.engagement.id);
+      if (!found) return { rowCount: 0, rows: [] };
+      return {
+        rowCount: 1,
+        rows: [{
+          id: found.id,
+          engagement_id: found.engagementId,
+          title: found.title,
+          amount: found.amount,
+          status: found.status,
+          payment_provider: found.paymentProvider || null,
+          payment_reference: found.paymentReference || null,
+          due_date: found.dueDate,
+          created_at: found.createdAt,
+          updated_at: found.updatedAt,
+        }]
+      };
+    }
+  );
+
+  if (result.rowCount === 0) {
+    const error = new Error('Milestone not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return parseMilestoneRow(result.rows[0]);
+}
+
+export async function setMilestonePaymentReference({ authUser, engagementId, milestoneId, provider, reference }) {
+  const workspace = await getEngagementWorkspace(authUser, engagementId);
+  const now = new Date().toISOString();
+  const result = await queryWithFallback(
+    `UPDATE engagement_milestones
+     SET payment_provider = $3, payment_reference = $4, status = 'funded', updated_at = $5
+     WHERE id = $1 AND engagement_id = $2
+     RETURNING id, engagement_id, title, amount, status, payment_provider, payment_reference, due_date, created_at, updated_at`,
+    [milestoneId, workspace.engagement.id, provider, reference, now],
+    () => {
+      const found = fallbackMilestones.find((entry) => entry.id === milestoneId && entry.engagementId === workspace.engagement.id);
+      if (!found) return { rowCount: 0, rows: [] };
+      found.paymentProvider = provider;
+      found.paymentReference = reference;
+      found.status = 'funded';
+      found.updatedAt = now;
+      persistFallbackStore();
+      return {
+        rowCount: 1,
+        rows: [{
+          id: found.id,
+          engagement_id: found.engagementId,
+          title: found.title,
+          amount: found.amount,
+          status: found.status,
+          payment_provider: found.paymentProvider,
+          payment_reference: found.paymentReference,
+          due_date: found.dueDate,
+          created_at: found.createdAt,
+          updated_at: found.updatedAt,
+        }]
+      };
+    }
+  );
+
+  if (result.rowCount === 0) {
+    const error = new Error('Milestone not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  await createUserNotification({
+    userId: workspace.engagement.requesterUserId,
+    type: 'milestone-funded',
+    title: 'Milestone funded',
+    body: `Payment session created for milestone #${milestoneId}.`,
+    relatedEngagementId: workspace.engagement.id,
+  });
+
+  return parseMilestoneRow(result.rows[0]);
+}
+
+export async function markMilestonePaidByReference(paymentReference) {
+  if (!paymentReference) {
+    const error = new Error('Payment reference is required');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const now = new Date().toISOString();
+  const result = await queryWithFallback(
+    `UPDATE engagement_milestones m
+     SET status = 'paid', updated_at = $2
+     FROM engagements e
+     WHERE m.payment_reference = $1 AND e.id = m.engagement_id
+     RETURNING m.id, m.engagement_id, m.title, m.amount, m.status, m.payment_provider, m.payment_reference, m.due_date, m.created_at, m.updated_at, e.requester_user_id`,
+    [paymentReference, now],
+    () => {
+      const found = fallbackMilestones.find((entry) => entry.paymentReference === paymentReference);
+      if (!found) return { rowCount: 0, rows: [] };
+      found.status = 'paid';
+      found.updatedAt = now;
+      const engagement = fallbackEngagements.find((entry) => entry.id === found.engagementId);
+      persistFallbackStore();
+      return {
+        rowCount: 1,
+        rows: [{
+          id: found.id,
+          engagement_id: found.engagementId,
+          title: found.title,
+          amount: found.amount,
+          status: found.status,
+          payment_provider: found.paymentProvider || null,
+          payment_reference: found.paymentReference || null,
+          due_date: found.dueDate,
+          created_at: found.createdAt,
+          updated_at: found.updatedAt,
+          requester_user_id: engagement?.requesterUserId || null,
+        }]
+      };
+    }
+  );
+
+  if (result.rowCount === 0) {
+    return null;
+  }
+
+  const row = result.rows[0];
+  if (row.requester_user_id) {
+    await createUserNotification({
+      userId: row.requester_user_id,
+      type: 'milestone-paid',
+      title: 'Milestone paid',
+      body: `${row.title} has been marked paid.`,
+      relatedEngagementId: row.engagement_id,
+    });
+  }
+
+  return parseMilestoneRow(row);
+}
+
+export async function createUserNotification({ userId, type, title, body, relatedEngagementId = null }) {
+  if (!userId || !title || !body) return null;
+
+  const createdAt = new Date().toISOString();
+  const result = await queryWithFallback(
+    `INSERT INTO user_notifications (user_id, type, title, body, related_engagement_id, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING id, user_id, type, title, body, related_engagement_id, read_at, created_at`,
+    [Number(userId), type || 'system', title, body, relatedEngagementId, createdAt],
+    () => {
+      const row = {
+        id: fallbackNotificationNextId++,
+        user_id: String(userId),
+        type: type || 'system',
+        title,
+        body,
+        related_engagement_id: relatedEngagementId,
+        read_at: null,
+        created_at: createdAt,
+      };
+      fallbackNotifications.push({
+        id: row.id,
+        userId: String(userId),
+        type: row.type,
+        title: row.title,
+        body: row.body,
+        relatedEngagementId: row.related_engagement_id,
+        readAt: row.read_at,
+        createdAt: row.created_at,
+      });
+      persistFallbackStore();
+      return { rowCount: 1, rows: [row] };
+    }
+  );
+
+  return parseNotificationRow(result.rows[0]);
+}
+
+export async function getUserNotifications(userId) {
+  const result = await queryWithFallback(
+    `SELECT id, user_id, type, title, body, related_engagement_id, read_at, created_at
+     FROM user_notifications
+     WHERE user_id = $1
+     ORDER BY created_at DESC`,
+    [Number(userId)],
+    () => ({
+      rowCount: fallbackNotifications.length,
+      rows: fallbackNotifications
+        .filter((entry) => String(entry.userId) === String(userId))
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .map((entry) => ({
+          id: entry.id,
+          user_id: entry.userId,
+          type: entry.type,
+          title: entry.title,
+          body: entry.body,
+          related_engagement_id: entry.relatedEngagementId,
+          read_at: entry.readAt,
+          created_at: entry.createdAt,
+        }))
+    })
+  );
+
+  return result.rows.map(parseNotificationRow);
+}
+
+export async function markUserNotificationRead(userId, notificationId) {
+  const readAt = new Date().toISOString();
+  const result = await queryWithFallback(
+    `UPDATE user_notifications
+     SET read_at = $3
+     WHERE id = $1 AND user_id = $2
+     RETURNING id, user_id, type, title, body, related_engagement_id, read_at, created_at`,
+    [notificationId, Number(userId), readAt],
+    () => {
+      const found = fallbackNotifications.find((entry) => entry.id === notificationId && String(entry.userId) === String(userId));
+      if (!found) return { rowCount: 0, rows: [] };
+      found.readAt = readAt;
+      persistFallbackStore();
+      return {
+        rowCount: 1,
+        rows: [{
+          id: found.id,
+          user_id: found.userId,
+          type: found.type,
+          title: found.title,
+          body: found.body,
+          related_engagement_id: found.relatedEngagementId,
+          read_at: found.readAt,
+          created_at: found.createdAt,
+        }]
+      };
+    }
+  );
+
+  if (result.rowCount === 0) {
+    const error = new Error('Notification not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return parseNotificationRow(result.rows[0]);
 }
 
 export async function getEngagementOutcome(authUser, engagementId) {
@@ -2182,9 +2504,24 @@ function parseMilestoneRow(row) {
     title: row.title,
     amount: Number(row.amount),
     status: row.status,
+    paymentProvider: row.payment_provider || '',
+    paymentReference: row.payment_reference || '',
     dueDate: row.due_date,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+function parseNotificationRow(row) {
+  return {
+    id: row.id,
+    userId: String(row.user_id),
+    type: row.type,
+    title: row.title,
+    body: row.body,
+    relatedEngagementId: row.related_engagement_id,
+    readAt: row.read_at,
+    createdAt: row.created_at,
   };
 }
 

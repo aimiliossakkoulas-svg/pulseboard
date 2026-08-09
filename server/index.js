@@ -14,11 +14,13 @@ import {
   createPost,
   createUser,
   getEngagementCalls,
+  getEngagementMilestoneById,
   getEngagementMilestones,
   getEngagementMessages,
   getEngagementOutcome,
   getEngagementsByUser,
   getEngagementWorkspace,
+  getUserNotifications,
   getCompanyMetrics,
   getCompanyProfile,
   getUserFromSession,
@@ -31,8 +33,11 @@ import {
   getRecommendedVendors,
   getVendors,
   listPosts,
+  markMilestonePaidByReference,
+  markUserNotificationRead,
   revokeSession,
   scheduleEngagementCall,
+  setMilestonePaymentReference,
   toggleMetricsSharing,
   updateEngagementMilestoneStatus,
   upsertEngagementOutcome
@@ -55,7 +60,30 @@ const METRIC_ALLOWED_KEYS = new Set([
 ]);
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
+  }
+}));
+
+let stripeClient = null;
+async function getStripeClient() {
+  if (stripeClient) {
+    return stripeClient;
+  }
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return null;
+  }
+
+  try {
+    const stripeModule = await import('stripe');
+    const Stripe = stripeModule.default;
+    stripeClient = new Stripe(process.env.STRIPE_SECRET_KEY);
+    return stripeClient;
+  } catch {
+    return null;
+  }
+}
 
 function getBearerToken(req) {
   const authHeader = req.headers.authorization || '';
@@ -787,6 +815,71 @@ app.patch('/api/engagements/:engagementId/milestones/:milestoneId', requireAuth,
   }
 });
 
+app.post('/api/engagements/:engagementId/milestones/:milestoneId/checkout', requireAuth, async (req, res) => {
+  const engagementId = parseInt(req.params.engagementId, 10);
+  const milestoneId = parseInt(req.params.milestoneId, 10);
+  if (!Number.isFinite(engagementId) || !Number.isFinite(milestoneId)) {
+    return res.status(400).json({ error: 'Invalid engagement or milestone id' });
+  }
+
+  if (!['Founder', 'Admin'].includes(String(req.authUser.role || ''))) {
+    return res.status(403).json({ error: 'Only Founder or Admin can create milestone checkout sessions' });
+  }
+
+  try {
+    const milestone = await getEngagementMilestoneById(req.authUser, engagementId, milestoneId);
+    const stripe = await getStripeClient();
+    let provider = 'manual';
+    let reference = `manual-${engagementId}-${milestoneId}-${Date.now()}`;
+    let checkoutUrl = '';
+
+    if (stripe) {
+      const origin = readTrimmedText(req.body?.origin) || process.env.WEB_BASE_URL || 'http://localhost:3000';
+      const session = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        success_url: `${origin}/app?checkout=success&engagement=${engagementId}`,
+        cancel_url: `${origin}/app?checkout=cancel&engagement=${engagementId}`,
+        line_items: [
+          {
+            quantity: 1,
+            price_data: {
+              currency: 'usd',
+              product_data: { name: milestone.title },
+              unit_amount: Math.round((Number(milestone.amount) || 0) * 100)
+            }
+          }
+        ],
+        metadata: {
+          engagementId: String(engagementId),
+          milestoneId: String(milestoneId)
+        }
+      });
+
+      provider = 'stripe';
+      reference = session.id;
+      checkoutUrl = session.url || '';
+    }
+
+    const updated = await setMilestonePaymentReference({
+      authUser: req.authUser,
+      engagementId,
+      milestoneId,
+      provider,
+      reference
+    });
+
+    return res.status(201).json({
+      provider,
+      reference,
+      checkoutUrl,
+      milestone: updated
+    });
+  } catch (error) {
+    const code = error.statusCode || 500;
+    return res.status(code).json({ error: error.message || 'Failed to create checkout session' });
+  }
+});
+
 app.get('/api/engagements/:engagementId/milestones', requireAuth, async (req, res) => {
   const engagementId = parseInt(req.params.engagementId, 10);
   if (!Number.isFinite(engagementId)) {
@@ -867,6 +960,56 @@ app.put('/api/engagements/:engagementId/outcome', requireAuth, async (req, res) 
   } catch (error) {
     const code = error.statusCode || 500;
     return res.status(code).json({ error: error.message || 'Failed to update outcome' });
+  }
+});
+
+app.post('/api/billing/stripe/webhook', async (req, res) => {
+  try {
+    const stripe = await getStripeClient();
+    let event = req.body;
+
+    if (stripe && process.env.STRIPE_WEBHOOK_SECRET && req.headers['stripe-signature'] && req.rawBody) {
+      event = stripe.webhooks.constructEvent(req.rawBody, req.headers['stripe-signature'], process.env.STRIPE_WEBHOOK_SECRET);
+    }
+
+    if (event?.type === 'checkout.session.completed') {
+      const reference = event?.data?.object?.id || event?.data?.object?.payment_intent || '';
+      if (reference) {
+        try {
+          await markMilestonePaidByReference(String(reference));
+        } catch {
+          // Keep webhook idempotent and non-blocking.
+        }
+      }
+    }
+
+    return res.json({ received: true });
+  } catch (error) {
+    return res.status(400).json({ error: error.message || 'Webhook processing failed' });
+  }
+});
+
+app.get('/api/notifications', requireAuth, async (req, res) => {
+  try {
+    const notifications = await getUserNotifications(req.authUser.id);
+    return res.json(notifications);
+  } catch {
+    return res.status(500).json({ error: 'Failed to load notifications' });
+  }
+});
+
+app.patch('/api/notifications/:id/read', requireAuth, async (req, res) => {
+  const notificationId = parseInt(req.params.id, 10);
+  if (!Number.isFinite(notificationId)) {
+    return res.status(400).json({ error: 'Invalid notification id' });
+  }
+
+  try {
+    const updated = await markUserNotificationRead(req.authUser.id, notificationId);
+    return res.json(updated);
+  } catch (error) {
+    const code = error.statusCode || 500;
+    return res.status(code).json({ error: error.message || 'Failed to update notification' });
   }
 });
 

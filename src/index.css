@@ -1894,6 +1894,47 @@ button:disabled,
   color: var(--accent-mint);
 }
 
+.engagement-checkout-message {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.notification-list {
+  display: grid;
+  gap: 10px;
+}
+
+.notification-item {
+  border-radius: 12px;
+  border: 1px solid var(--border-default);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 12px;
+}
+
+.notification-item h3 {
+  margin: 0 0 6px;
+}
+
+.notification-item p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.notification-item-read {
+  opacity: 0.78;
+}
+
+.notification-meta {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
 :focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;

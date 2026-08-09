@@ -107,6 +107,57 @@ test('auth guards and protected writes work across API endpoints', async (t) => 
   });
   assert.equal(milestoneUpdate.status, 200);
 
+  const employeeSignup = await fetch(`${baseUrl}/api/auth/signup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: 'Field Employee',
+      email: `employee-${uniqueSuffix}@${uniqueDomain}`,
+      password: 'verysecure123',
+      role: 'Employee',
+      companyName: uniqueCompany,
+      companyDomain: uniqueDomain
+    })
+  });
+  assert.equal(employeeSignup.status, 201);
+  const employeeData = await getJson(employeeSignup);
+
+  const forbiddenPaidUpdate = await fetch(`${baseUrl}/api/engagements/${engagementData.id}/milestones/${milestoneData.id}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${employeeData.token}`
+    },
+    body: JSON.stringify({ status: 'paid' })
+  });
+  assert.equal(forbiddenPaidUpdate.status, 403);
+
+  const checkoutCreate = await fetch(`${baseUrl}/api/engagements/${engagementData.id}/milestones/${milestoneData.id}/checkout`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${signupData.token}`
+    },
+    body: JSON.stringify({ origin: baseUrl })
+  });
+  assert.equal(checkoutCreate.status, 201);
+  const checkoutData = await getJson(checkoutCreate);
+  assert.ok(checkoutData.reference);
+
+  const webhookComplete = await fetch(`${baseUrl}/api/billing/stripe/webhook`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type: 'checkout.session.completed',
+      data: {
+        object: {
+          id: checkoutData.reference
+        }
+      }
+    })
+  });
+  assert.equal(webhookComplete.status, 200);
+
   const callCreate = await fetch(`${baseUrl}/api/engagements/${engagementData.id}/calls`, {
     method: 'POST',
     headers: {
@@ -148,6 +199,21 @@ test('auth guards and protected writes work across API endpoints', async (t) => 
   assert.ok(Array.isArray(workspaceData.milestones));
   assert.ok(Array.isArray(workspaceData.calls));
   assert.equal(typeof workspaceData.outcome.roiPercent, 'number');
+  assert.ok(workspaceData.milestones.some((item) => item.status === 'paid'));
+
+  const notifications = await fetch(`${baseUrl}/api/notifications`, {
+    headers: { Authorization: `Bearer ${signupData.token}` }
+  });
+  assert.equal(notifications.status, 200);
+  const notificationsData = await getJson(notifications);
+  assert.ok(Array.isArray(notificationsData));
+  assert.ok(notificationsData.length > 0);
+
+  const markRead = await fetch(`${baseUrl}/api/notifications/${notificationsData[0].id}/read`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${signupData.token}` }
+  });
+  assert.equal(markRead.status, 200);
 
   const forbiddenPost = await fetch(`${baseUrl}/api/posts`, {
     method: 'POST',

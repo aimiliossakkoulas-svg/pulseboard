@@ -44,6 +44,10 @@ function DashboardPage({
   const [callScheduledAt, setCallScheduledAt] = useState('');
   const [callSaving, setCallSaving] = useState(false);
   const [outcomeSaving, setOutcomeSaving] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [notificationError, setNotificationError] = useState('');
+  const [checkoutLoadingMilestoneId, setCheckoutLoadingMilestoneId] = useState(null);
+  const [checkoutMessage, setCheckoutMessage] = useState('');
   const [outcomeForm, setOutcomeForm] = useState({
     baselineGrowth: '0',
     currentGrowth: '0',
@@ -72,6 +76,26 @@ function DashboardPage({
     }
 
     loadEngagements();
+  }, [token, apiUrl]);
+
+  useEffect(() => {
+    async function loadNotifications() {
+      if (!token || !apiUrl) return;
+      try {
+        const response = await fetch(`${apiUrl}/api/notifications`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!response.ok) {
+          throw new Error('Unable to load notifications');
+        }
+        const data = await response.json();
+        setNotifications(data);
+      } catch (error) {
+        setNotificationError(error.message || 'Unable to load notifications');
+      }
+    }
+
+    loadNotifications();
   }, [token, apiUrl]);
 
   useEffect(() => {
@@ -283,6 +307,53 @@ function DashboardPage({
       setWorkspaceError(error.message || 'Unable to save outcomes');
     } finally {
       setOutcomeSaving(false);
+    }
+  }
+
+  async function handleCreateCheckout(milestoneId) {
+    if (!selectedEngagementId) return;
+    setCheckoutLoadingMilestoneId(milestoneId);
+    setCheckoutMessage('');
+    try {
+      const response = await fetch(`${apiUrl}/api/engagements/${selectedEngagementId}/milestones/${milestoneId}/checkout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ origin: window.location.origin })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Unable to create checkout');
+      }
+
+      if (data.checkoutUrl) {
+        window.open(data.checkoutUrl, '_blank', 'noopener,noreferrer');
+        setCheckoutMessage('Stripe checkout opened in a new tab.');
+      } else {
+        setCheckoutMessage('Payment session created in manual mode; milestone moved to funded.');
+      }
+      await refreshWorkspace();
+    } catch (error) {
+      setCheckoutMessage(error.message || 'Unable to create checkout');
+    } finally {
+      setCheckoutLoadingMilestoneId(null);
+    }
+  }
+
+  async function markNotificationRead(notificationId) {
+    try {
+      const response = await fetch(`${apiUrl}/api/notifications/${notificationId}/read`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to mark notification read');
+      setNotifications((current) => current.map((item) => (item.id === notificationId ? data : item)));
+    } catch (error) {
+      setNotificationError(error.message || 'Unable to mark notification read');
     }
   }
 
@@ -614,9 +685,20 @@ function DashboardPage({
                       <option value="approved">approved</option>
                       <option value="paid">paid</option>
                     </select>
+                    {['Founder', 'Admin'].includes(String(user.role || '')) && m.status !== 'paid' && (
+                      <button
+                        type="button"
+                        className="card-action-btn"
+                        disabled={checkoutLoadingMilestoneId === m.id}
+                        onClick={() => handleCreateCheckout(m.id)}
+                      >
+                        {checkoutLoadingMilestoneId === m.id ? 'Creating...' : 'Create checkout'}
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
+              {checkoutMessage && <p className="engagement-checkout-message">{checkoutMessage}</p>}
               <input value={milestoneTitle} onChange={(e) => setMilestoneTitle(e.target.value)} placeholder="Milestone title" />
               <input type="number" min="0" value={milestoneAmount} onChange={(e) => setMilestoneAmount(e.target.value)} placeholder="Amount" />
               <input type="date" value={milestoneDueDate} onChange={(e) => setMilestoneDueDate(e.target.value)} />
@@ -667,6 +749,34 @@ function DashboardPage({
             </article>
           </div>
         )}
+      </section>
+
+      <section className="panel">
+        <div className="section-header">
+          <div>
+            <p className="eyebrow">Alerts</p>
+            <h2 className="section-title">Notification center</h2>
+          </div>
+          <span className="section-meta">{notifications.filter((n) => !n.readAt).length} unread</span>
+        </div>
+        {notificationError && <p className="error-note">{notificationError}</p>}
+        <div className="notification-list">
+          {notifications.length === 0 && <p>No notifications yet.</p>}
+          {notifications.map((item) => (
+            <article key={item.id} className={`notification-item${item.readAt ? ' notification-item-read' : ''}`}>
+              <h3>{item.title}</h3>
+              <p>{item.body}</p>
+              <div className="notification-meta">
+                <span>{new Date(item.createdAt).toLocaleString()}</span>
+                {!item.readAt && (
+                  <button type="button" className="card-action-btn" onClick={() => markNotificationRead(item.id)}>
+                    Mark read
+                  </button>
+                )}
+              </div>
+            </article>
+          ))}
+        </div>
       </section>
 
       <section className="panel composer">

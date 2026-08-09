@@ -128,10 +128,15 @@ CREATE TABLE IF NOT EXISTS engagement_milestones (
   title VARCHAR(255) NOT NULL,
   amount DOUBLE PRECISION NOT NULL DEFAULT 0,
   status VARCHAR(30) NOT NULL DEFAULT 'planned',
+  payment_provider VARCHAR(30),
+  payment_reference VARCHAR(255),
   due_date TIMESTAMP,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE engagement_milestones ADD COLUMN IF NOT EXISTS payment_provider VARCHAR(30);
+ALTER TABLE engagement_milestones ADD COLUMN IF NOT EXISTS payment_reference VARCHAR(255);
 
 CREATE TABLE IF NOT EXISTS engagement_calls (
   id SERIAL PRIMARY KEY,
@@ -154,4 +159,15 @@ CREATE TABLE IF NOT EXISTS engagement_outcomes (
   current_pipeline DOUBLE PRECISION NOT NULL DEFAULT 0,
   roi_percent DOUBLE PRECISION NOT NULL DEFAULT 0,
   last_updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS user_notifications (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  type VARCHAR(60) NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  body TEXT NOT NULL,
+  related_engagement_id INTEGER REFERENCES engagements(id) ON DELETE SET NULL,
+  read_at TIMESTAMP,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
