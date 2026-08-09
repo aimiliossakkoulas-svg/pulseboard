@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import LandingHero from '../components/landing/LandingHero';
 
 const PREVIEW_COMPANIES = [
@@ -32,14 +33,16 @@ const MEMBERSHIP_TIERS = [
   },
 ];
 
-function LandingPage({ heroStats, previewFeedItems, authMode, setAuthMode, authForm, setAuthForm, authMessage, handleAuthSubmit }) {
+function LandingPage({ heroStats, previewFeedItems }) {
+  const navigate = useNavigate();
+
   return (
     <div className="app-shell">
       <a className="skip-link" href="#main-content">Skip to main content</a>
       <LandingHero
         heroStats={heroStats}
-        onSignupClick={() => setAuthMode('signup')}
-        onSigninClick={() => setAuthMode('login')}
+        onSignupClick={() => navigate('/signup')}
+        onSigninClick={() => navigate('/login')}
       />
 
       <main id="main-content">
@@ -162,7 +165,7 @@ function LandingPage({ heroStats, previewFeedItems, authMode, setAuthMode, authF
               <button
                 type="button"
                 className={tier.highlight ? 'cta-primary membership-cta' : 'cta-ghost membership-cta'}
-                onClick={() => setAuthMode('signup')}
+                onClick={() => navigate('/signup')}
               >
                 Get started
               </button>
@@ -198,46 +201,9 @@ function LandingPage({ heroStats, previewFeedItems, authMode, setAuthMode, authF
           <p>Start free. Upgrade your visibility and partner access as your profile matures.</p>
         </div>
         <div className="hero-actions">
-          <button type="button" className="cta-primary" onClick={() => setAuthMode('signup')}>Join the network</button>
-          <button type="button" className="cta-ghost" onClick={() => setAuthMode('login')}>Sign in</button>
+          <button type="button" className="cta-primary" onClick={() => navigate('/signup')}>Join the network</button>
+          <button type="button" className="cta-ghost" onClick={() => navigate('/login')}>Sign in</button>
         </div>
-      </section>
-
-      <section className="panel auth-panel">
-        <div className="auth-toggle">
-          <button type="button" className={authMode === 'login' ? 'active' : ''} aria-pressed={authMode === 'login'} onClick={() => setAuthMode('login')}>Sign in</button>
-          <button type="button" className={authMode === 'signup' ? 'active' : ''} aria-pressed={authMode === 'signup'} onClick={() => setAuthMode('signup')}>Create account</button>
-        </div>
-
-        <form onSubmit={handleAuthSubmit} className="auth-form" aria-label={authMode === 'login' ? 'Sign in form' : 'Create account form'}>
-          {authMode === 'signup' && (
-            <label>
-              Full name
-              <input value={authForm.name} autoComplete="name" required={authMode === 'signup'} onChange={(event) => setAuthForm({ ...authForm, name: event.target.value })} placeholder="Your company name" />
-            </label>
-          )}
-          <label>
-            Email
-            <input type="email" value={authForm.email} autoComplete="email" required onChange={(event) => setAuthForm({ ...authForm, email: event.target.value })} placeholder="you@company.com" />
-          </label>
-          <label>
-            Password
-            <input type="password" value={authForm.password} autoComplete={authMode === 'login' ? 'current-password' : 'new-password'} minLength={8} required onChange={(event) => setAuthForm({ ...authForm, password: event.target.value })} placeholder="Choose a secure password" />
-          </label>
-          {authMode === 'signup' && (
-            <label>
-              Role
-              <select value={authForm.role} onChange={(event) => setAuthForm({ ...authForm, role: event.target.value })}>
-                <option value="Founder">Founder</option>
-                <option value="Agent">Agent</option>
-                <option value="Vendor">Vendor</option>
-              </select>
-            </label>
-          )}
-          <button type="submit">{authMode === 'login' ? 'Sign in' : 'Create account'}</button>
-        </form>
-
-        {authMessage && <p className="auth-message" role="status" aria-live="polite">{authMessage}</p>}
       </section>
       </main>
     </div>

@@ -46,6 +46,9 @@ function MarketplacePage({ user, vendors, companies, token, apiUrl, handleLogout
   const [formMessage, setFormMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [cancellingVendorId, setCancellingVendorId] = useState('');
+  const [requestingVendorId, setRequestingVendorId] = useState('');
 
   useEffect(() => {
     if (!token) return;
@@ -60,6 +63,7 @@ function MarketplacePage({ user, vendors, companies, token, apiUrl, handleLogout
   }, [apiUrl, token]);
 
   async function handleRequestIntro(vendorId) {
+    setRequestingVendorId(vendorId);
     setSubmitting(true);
     setFormError('');
     try {
@@ -77,19 +81,34 @@ function MarketplacePage({ user, vendors, companies, token, apiUrl, handleLogout
       setFormError(err.message);
     } finally {
       setSubmitting(false);
+      setRequestingVendorId('');
     }
   }
 
   async function handleCancelRequest(vendorId) {
     const requestId = pendingRequests[vendorId];
     if (!requestId) return;
+    setCancellingVendorId(vendorId);
     try {
       await fetch(`${apiUrl}/api/intro-requests/${requestId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
       setPendingRequests((prev) => { const next = { ...prev }; delete next[vendorId]; return next; });
-    } catch {}
+    } catch {
+      setFormError('Unable to cancel intro request right now.');
+    } finally {
+      setCancellingVendorId('');
+    }
+  }
+
+  async function handleLogoutClick() {
+    setIsLoggingOut(true);
+    try {
+      await handleLogout();
+    } finally {
+      setIsLoggingOut(false);
+    }
   }
 
   const filtered = vendors.filter((v) => {
@@ -114,7 +133,9 @@ function MarketplacePage({ user, vendors, companies, token, apiUrl, handleLogout
           <p className="eyebrow">Signed in as</p>
           <h3>{user.name}</h3>
           <p>{user.role || 'Founder'}</p>
-          <button type="button" className="secondary-action" onClick={handleLogout}>Log out</button>
+          <button type="button" className="secondary-action" onClick={handleLogoutClick} disabled={isLoggingOut}>
+            {isLoggingOut ? 'Logging out...' : 'Log out'}
+          </button>
         </div>
       </header>
 
@@ -193,15 +214,23 @@ function MarketplacePage({ user, vendors, companies, token, apiUrl, handleLogout
                   {isPending ? (
                     <>
                       <span className="mp-pending-badge">Intro requested</span>
-                      <button type="button" className="mp-cancel-btn" onClick={() => handleCancelRequest(vendor.id)}>Cancel</button>
+                      <button
+                        type="button"
+                        className="mp-cancel-btn"
+                        onClick={() => handleCancelRequest(vendor.id)}
+                        disabled={cancellingVendorId === vendor.id}
+                      >
+                        {cancellingVendorId === vendor.id ? 'Cancelling...' : 'Cancel'}
+                      </button>
                     </>
                   ) : (
                     <button
                       type="button"
                       className="cta-primary mp-request-btn"
+                      disabled={requestingVendorId === vendor.id}
                       onClick={() => { setOpenForm(isOpen ? null : vendor.id); setFormError(''); setFormMessage(''); }}
                     >
-                      {isOpen ? 'Close' : 'Request intro'}
+                      {requestingVendorId === vendor.id ? 'Sending...' : (isOpen ? 'Close' : 'Request intro')}
                     </button>
                   )}
                 </div>
@@ -220,12 +249,12 @@ function MarketplacePage({ user, vendors, companies, token, apiUrl, handleLogout
                       <button
                         type="button"
                         className="cta-primary"
-                        disabled={submitting}
+                        disabled={submitting || requestingVendorId === vendor.id}
                         onClick={() => handleRequestIntro(vendor.id)}
                       >
-                        {submitting ? 'Sending…' : 'Send request'}
+                        {submitting && requestingVendorId === vendor.id ? 'Sending…' : 'Send request'}
                       </button>
-                      <button type="button" className="cta-ghost" onClick={() => setOpenForm(null)}>Cancel</button>
+                      <button type="button" className="cta-ghost" onClick={() => setOpenForm(null)} disabled={submitting && requestingVendorId === vendor.id}>Cancel</button>
                     </div>
                   </div>
                 )}

@@ -22,6 +22,36 @@ function DashboardPage({
   introRequests,
 }) {
   const [search, setSearch] = useState('');
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [sharingCompanyId, setSharingCompanyId] = useState('');
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  async function handleLogoutClick() {
+    setIsLoggingOut(true);
+    try {
+      await handleLogout();
+    } finally {
+      setIsLoggingOut(false);
+    }
+  }
+
+  async function handlePostSubmit(event) {
+    setIsPublishing(true);
+    try {
+      await handleSubmit(event);
+    } finally {
+      setIsPublishing(false);
+    }
+  }
+
+  async function handleToggleSharing(companyId) {
+    setSharingCompanyId(companyId);
+    try {
+      await toggleMetricsSharing(companyId);
+    } finally {
+      setSharingCompanyId('');
+    }
+  }
 
   const filteredCompanies = companies.filter((c) =>
     !search.trim() ||
@@ -54,7 +84,9 @@ function DashboardPage({
           <p className="eyebrow">Signed in as</p>
           <h3>{user.name}</h3>
           <p>{user.role || 'Founder'}</p>
-          <button type="button" className="secondary-action" onClick={handleLogout}>Log out</button>
+          <button type="button" className="secondary-action" onClick={handleLogoutClick} disabled={isLoggingOut}>
+            {isLoggingOut ? 'Logging out...' : 'Log out'}
+          </button>
         </div>
       </header>
 
@@ -137,8 +169,13 @@ function DashboardPage({
                     {canShare ? '⬤ Metrics shared' : '⬤ Private'}
                   </span>
                   <div className="social-card-actions">
-                    <button type="button" className="card-action-btn" onClick={() => toggleMetricsSharing(company.id)}>
-                      {canShare ? 'Restrict' : 'Share metrics'}
+                    <button
+                      type="button"
+                      className="card-action-btn"
+                      onClick={() => handleToggleSharing(company.id)}
+                      disabled={sharingCompanyId === company.id}
+                    >
+                      {sharingCompanyId === company.id ? 'Updating...' : (canShare ? 'Restrict' : 'Share metrics')}
                     </button>
                     <Link to={`/company/${company.id}`} className="card-action-btn card-action-primary">View profile</Link>
                   </div>
@@ -283,7 +320,7 @@ function DashboardPage({
 
       <section className="panel composer">
         <h2>Create a post</h2>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handlePostSubmit}>
           <label>
             Name
             <input value={author} onChange={(event) => setAuthor(event.target.value)} placeholder="Your name" />
@@ -292,7 +329,7 @@ function DashboardPage({
             What do you want to share?
             <textarea value={content} onChange={(event) => setContent(event.target.value)} rows="4" placeholder="Write something inspiring..." />
           </label>
-          <button type="submit">Publish</button>
+          <button type="submit" disabled={isPublishing || !content.trim()}>{isPublishing ? 'Publishing...' : 'Publish'}</button>
         </form>
       </section>
 

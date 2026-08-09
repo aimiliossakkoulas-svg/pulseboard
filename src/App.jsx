@@ -5,6 +5,7 @@ import DashboardPage from './pages/DashboardPage';
 import MarketplacePage from './pages/MarketplacePage';
 import CompanyProfilePage from './pages/CompanyProfilePage';
 import CompanyOnboardingPage from './pages/CompanyOnboardingPage';
+import AuthPage from './pages/AuthPage';
 import {
   adviceRequests,
   fallbackCompanies,
@@ -46,6 +47,7 @@ function App() {
   const [authMode, setAuthMode] = useState('login');
   const [authForm, setAuthForm] = useState({ name: '', email: '', password: '', role: 'Founder' });
   const [authMessage, setAuthMessage] = useState('');
+  const [authSubmitting, setAuthSubmitting] = useState(false);
   const [activeSection, setActiveSection] = useState('profiles');
   const [introRequests, setIntroRequests] = useState([]);
 
@@ -154,6 +156,7 @@ function App() {
 
   async function handleAuthSubmit(event) {
     event.preventDefault();
+    setAuthSubmitting(true);
 
     try {
       const endpoint = authMode === 'login' ? '/api/auth/login' : '/api/auth/signup';
@@ -184,6 +187,8 @@ function App() {
       navigate(isSignup ? '/onboarding' : '/app');
     } catch (error) {
       setAuthMessage(error.message);
+    } finally {
+      setAuthSubmitting(false);
     }
   }
 
@@ -340,42 +345,32 @@ function App() {
             <LandingPage
               heroStats={heroStats}
               previewFeedItems={previewFeedItems}
-              authMode={authMode}
-              setAuthMode={setAuthMode}
-              authForm={authForm}
-              setAuthForm={setAuthForm}
-              authMessage={authMessage}
-              handleAuthSubmit={handleAuthSubmit}
             />
           }
         />
         <Route
           path="/login"
           element={
-            <LandingPage
-              heroStats={heroStats}
-              previewFeedItems={previewFeedItems}
-              authMode={authMode}
-              setAuthMode={setAuthMode}
+            <AuthPage
+              mode="login"
               authForm={authForm}
               setAuthForm={setAuthForm}
               authMessage={authMessage}
               handleAuthSubmit={handleAuthSubmit}
+              authSubmitting={authSubmitting}
             />
           }
         />
         <Route
           path="/signup"
           element={
-            <LandingPage
-              heroStats={heroStats}
-              previewFeedItems={previewFeedItems}
-              authMode={authMode}
-              setAuthMode={setAuthMode}
+            <AuthPage
+              mode="signup"
               authForm={authForm}
               setAuthForm={setAuthForm}
               authMessage={authMessage}
               handleAuthSubmit={handleAuthSubmit}
+              authSubmitting={authSubmitting}
             />
           }
         />
