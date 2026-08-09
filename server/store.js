@@ -12,7 +12,16 @@ const storeFilePath = process.env.STORE_FILE_PATH || path.join(dataDir, 'store.j
 const fallbackSessions = [];
 const fallbackCompanyMetrics = [];
 const fallbackIntroRequests = [];
+const fallbackEngagements = [];
+const fallbackEngagementMessages = [];
+const fallbackMilestones = [];
+const fallbackCalls = [];
+const fallbackOutcomes = [];
 let fallbackIntroRequestNextId = 1;
+let fallbackEngagementNextId = 1;
+let fallbackMessageNextId = 1;
+let fallbackMilestoneNextId = 1;
+let fallbackCallNextId = 1;
 
 function ensureDataDirectory() {
   if (!fs.existsSync(dataDir)) {
@@ -144,6 +153,25 @@ function loadPersistedFallbackStore() {
       fallbackIntroRequests.splice(0, fallbackIntroRequests.length, ...parsed.introRequests);
       fallbackIntroRequestNextId = fallbackIntroRequests.reduce((max, r) => Math.max(max, r.id + 1), 1);
     }
+    if (Array.isArray(parsed.engagements)) {
+      fallbackEngagements.splice(0, fallbackEngagements.length, ...parsed.engagements);
+      fallbackEngagementNextId = fallbackEngagements.reduce((max, r) => Math.max(max, r.id + 1), 1);
+    }
+    if (Array.isArray(parsed.engagementMessages)) {
+      fallbackEngagementMessages.splice(0, fallbackEngagementMessages.length, ...parsed.engagementMessages);
+      fallbackMessageNextId = fallbackEngagementMessages.reduce((max, r) => Math.max(max, r.id + 1), 1);
+    }
+    if (Array.isArray(parsed.engagementMilestones)) {
+      fallbackMilestones.splice(0, fallbackMilestones.length, ...parsed.engagementMilestones);
+      fallbackMilestoneNextId = fallbackMilestones.reduce((max, r) => Math.max(max, r.id + 1), 1);
+    }
+    if (Array.isArray(parsed.engagementCalls)) {
+      fallbackCalls.splice(0, fallbackCalls.length, ...parsed.engagementCalls);
+      fallbackCallNextId = fallbackCalls.reduce((max, r) => Math.max(max, r.id + 1), 1);
+    }
+    if (Array.isArray(parsed.engagementOutcomes)) {
+      fallbackOutcomes.splice(0, fallbackOutcomes.length, ...parsed.engagementOutcomes);
+    }
   } catch (error) {
     console.warn('Unable to load persisted fallback store. Continuing with seeded data.');
   }
@@ -167,7 +195,12 @@ function persistFallbackStore() {
         meetings,
         feedItems,
         companyMetrics: fallbackCompanyMetrics,
-        introRequests: fallbackIntroRequests
+        introRequests: fallbackIntroRequests,
+        engagements: fallbackEngagements,
+        engagementMessages: fallbackEngagementMessages,
+        engagementMilestones: fallbackMilestones,
+        engagementCalls: fallbackCalls,
+        engagementOutcomes: fallbackOutcomes
       }, null, 2),
       'utf8'
     );
@@ -224,6 +257,10 @@ const METRIC_ALLOWED_KEYS = new Set([
   'campaigns_live',
   'meetings_quarter'
 ]);
+const ENGAGEMENT_STATUSES = new Set(['active', 'paused', 'completed']);
+const MESSAGE_CHANNELS = new Set(['chat', 'note', 'call-summary']);
+const MILESTONE_STATUSES = new Set(['planned', 'funded', 'in_progress', 'submitted', 'approved', 'paid']);
+const BILLING_MODELS = new Set(['hourly', 'fixed', 'milestone']);
 
 function clamp01(value) {
   return Math.min(1, Math.max(0, value));
@@ -614,6 +651,87 @@ async function bootstrapDatabase() {
         metric_value DOUBLE PRECISION NOT NULL,
         captured_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS intro_requests (
+        id SERIAL PRIMARY KEY,
+        requester_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        vendor_id VARCHAR(64) NOT NULL,
+        message TEXT,
+        status VARCHAR(20) NOT NULL DEFAULT 'pending',
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS engagements (
+        id SERIAL PRIMARY KEY,
+        requester_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        company_id VARCHAR(64) NOT NULL,
+        vendor_id VARCHAR(64) NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        status VARCHAR(30) NOT NULL DEFAULT 'active',
+        pricing_model VARCHAR(30) NOT NULL DEFAULT 'milestone',
+        consultant_fee DOUBLE PRECISION NOT NULL DEFAULT 0,
+        fee_currency VARCHAR(10) NOT NULL DEFAULT 'USD',
+        started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS engagement_messages (
+        id SERIAL PRIMARY KEY,
+        engagement_id INTEGER NOT NULL REFERENCES engagements(id) ON DELETE CASCADE,
+        author_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        author_name VARCHAR(100) NOT NULL,
+        channel VARCHAR(30) NOT NULL DEFAULT 'chat',
+        body TEXT NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS engagement_milestones (
+        id SERIAL PRIMARY KEY,
+        engagement_id INTEGER NOT NULL REFERENCES engagements(id) ON DELETE CASCADE,
+        title VARCHAR(255) NOT NULL,
+        amount DOUBLE PRECISION NOT NULL DEFAULT 0,
+        status VARCHAR(30) NOT NULL DEFAULT 'planned',
+        due_date TIMESTAMP,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS engagement_calls (
+        id SERIAL PRIMARY KEY,
+        engagement_id INTEGER NOT NULL REFERENCES engagements(id) ON DELETE CASCADE,
+        provider VARCHAR(30) NOT NULL,
+        meeting_url TEXT NOT NULL,
+        agenda TEXT,
+        scheduled_at TIMESTAMP NOT NULL,
+        created_by_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS engagement_outcomes (
+        engagement_id INTEGER PRIMARY KEY REFERENCES engagements(id) ON DELETE CASCADE,
+        baseline_growth DOUBLE PRECISION NOT NULL DEFAULT 0,
+        current_growth DOUBLE PRECISION NOT NULL DEFAULT 0,
+        baseline_retention DOUBLE PRECISION NOT NULL DEFAULT 0,
+        current_retention DOUBLE PRECISION NOT NULL DEFAULT 0,
+        baseline_pipeline DOUBLE PRECISION NOT NULL DEFAULT 0,
+        current_pipeline DOUBLE PRECISION NOT NULL DEFAULT 0,
+        roi_percent DOUBLE PRECISION NOT NULL DEFAULT 0,
+        last_updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
@@ -1339,6 +1457,609 @@ async function createSession(user) {
   return token;
 }
 
+function canAccessEngagement(authUser, engagement) {
+  if (!authUser || !engagement) return false;
+  if (String(engagement.requesterUserId) === String(authUser.id)) return true;
+  return Boolean(authUser.companyId && engagement.companyId && authUser.companyId === engagement.companyId);
+}
+
+export async function createEngagement({ authUser, vendorId, title, pricingModel = 'milestone', consultantFee = 0, feeCurrency = 'USD', introRequestId = null }) {
+  const normalizedPricing = BILLING_MODELS.has(pricingModel) ? pricingModel : 'milestone';
+  const normalizedFee = Math.max(0, Number(consultantFee) || 0);
+  const normalizedCurrency = String(feeCurrency || 'USD').toUpperCase().slice(0, 10) || 'USD';
+  const companyId = authUser.companyId || toCompanyId(authUser.companyName || authUser.name || 'company');
+  const now = new Date().toISOString();
+
+  const result = await queryWithFallback(
+    `INSERT INTO engagements (
+      requester_user_id, company_id, vendor_id, title, status,
+      pricing_model, consultant_fee, fee_currency, started_at, created_at, updated_at
+    ) VALUES ($1, $2, $3, $4, 'active', $5, $6, $7, $8, $8, $8)
+    RETURNING id, requester_user_id, company_id, vendor_id, title, status, pricing_model, consultant_fee, fee_currency, started_at, created_at, updated_at`,
+    [authUser.id, companyId, vendorId, title, normalizedPricing, normalizedFee, normalizedCurrency, now],
+    () => {
+      const row = {
+        id: fallbackEngagementNextId++,
+        requester_user_id: String(authUser.id),
+        company_id: companyId,
+        vendor_id: vendorId,
+        title,
+        status: 'active',
+        pricing_model: normalizedPricing,
+        consultant_fee: normalizedFee,
+        fee_currency: normalizedCurrency,
+        started_at: now,
+        created_at: now,
+        updated_at: now,
+      };
+      fallbackEngagements.push({
+        id: row.id,
+        requesterUserId: String(authUser.id),
+        companyId,
+        vendorId,
+        title,
+        status: 'active',
+        pricingModel: normalizedPricing,
+        consultantFee: normalizedFee,
+        feeCurrency: normalizedCurrency,
+        startedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      });
+      persistFallbackStore();
+      return { rowCount: 1, rows: [row] };
+    }
+  );
+
+  if (introRequestId) {
+    await queryWithFallback(
+      `UPDATE intro_requests
+       SET status = 'accepted', updated_at = $2
+       WHERE id = $1 AND requester_user_id = $3`,
+      [introRequestId, now, authUser.id],
+      () => {
+        const req = fallbackIntroRequests.find((entry) => entry.id === introRequestId && String(entry.requesterUserId) === String(authUser.id));
+        if (req) {
+          req.status = 'accepted';
+          req.updatedAt = now;
+          persistFallbackStore();
+        }
+        return { rowCount: req ? 1 : 0, rows: [] };
+      }
+    );
+  }
+
+  const engagement = parseEngagementRow(result.rows[0]);
+  await addEngagementMessage({ authUser, engagementId: engagement.id, channel: 'note', body: `Engagement started: ${title}` });
+  return engagement;
+}
+
+export async function getEngagementsByUser(authUser) {
+  const result = await queryWithFallback(
+    `SELECT id, requester_user_id, company_id, vendor_id, title, status, pricing_model, consultant_fee, fee_currency, started_at, created_at, updated_at
+     FROM engagements
+     WHERE requester_user_id = $1 OR company_id = $2
+     ORDER BY created_at DESC`,
+    [authUser.id, authUser.companyId || ''],
+    () => ({
+      rowCount: fallbackEngagements.length,
+      rows: fallbackEngagements
+        .filter((entry) => String(entry.requesterUserId) === String(authUser.id) || (authUser.companyId && entry.companyId === authUser.companyId))
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .map((entry) => ({
+          id: entry.id,
+          requester_user_id: entry.requesterUserId,
+          company_id: entry.companyId,
+          vendor_id: entry.vendorId,
+          title: entry.title,
+          status: entry.status,
+          pricing_model: entry.pricingModel,
+          consultant_fee: entry.consultantFee,
+          fee_currency: entry.feeCurrency,
+          started_at: entry.startedAt,
+          created_at: entry.createdAt,
+          updated_at: entry.updatedAt,
+        }))
+    })
+  );
+
+  return result.rows.map(parseEngagementRow);
+}
+
+export async function getEngagementWorkspace(authUser, engagementId) {
+  const engagementRows = await queryWithFallback(
+    `SELECT id, requester_user_id, company_id, vendor_id, title, status, pricing_model, consultant_fee, fee_currency, started_at, created_at, updated_at
+     FROM engagements WHERE id = $1 LIMIT 1`,
+    [engagementId],
+    () => {
+      const found = fallbackEngagements.find((entry) => entry.id === engagementId);
+      if (!found) return { rowCount: 0, rows: [] };
+      return {
+        rowCount: 1,
+        rows: [{
+          id: found.id,
+          requester_user_id: found.requesterUserId,
+          company_id: found.companyId,
+          vendor_id: found.vendorId,
+          title: found.title,
+          status: found.status,
+          pricing_model: found.pricingModel,
+          consultant_fee: found.consultantFee,
+          fee_currency: found.feeCurrency,
+          started_at: found.startedAt,
+          created_at: found.createdAt,
+          updated_at: found.updatedAt,
+        }]
+      };
+    }
+  );
+
+  if (engagementRows.rowCount === 0) {
+    const error = new Error('Engagement not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const engagement = parseEngagementRow(engagementRows.rows[0]);
+  if (!canAccessEngagement(authUser, engagement)) {
+    const error = new Error('You do not have access to this engagement');
+    error.statusCode = 403;
+    throw error;
+  }
+
+  const [messagesResult, milestonesResult, callsResult, outcomeResult] = await Promise.all([
+    queryWithFallback(
+      `SELECT id, engagement_id, author_user_id, author_name, channel, body, created_at
+       FROM engagement_messages WHERE engagement_id = $1 ORDER BY created_at ASC`,
+      [engagement.id],
+      () => ({
+        rowCount: fallbackEngagementMessages.length,
+        rows: fallbackEngagementMessages
+          .filter((entry) => entry.engagementId === engagement.id)
+          .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+          .map((entry) => ({
+            id: entry.id,
+            engagement_id: entry.engagementId,
+            author_user_id: entry.authorUserId,
+            author_name: entry.authorName,
+            channel: entry.channel,
+            body: entry.body,
+            created_at: entry.createdAt,
+          }))
+      })
+    ),
+    queryWithFallback(
+      `SELECT id, engagement_id, title, amount, status, due_date, created_at, updated_at
+       FROM engagement_milestones WHERE engagement_id = $1 ORDER BY created_at ASC`,
+      [engagement.id],
+      () => ({
+        rowCount: fallbackMilestones.length,
+        rows: fallbackMilestones
+          .filter((entry) => entry.engagementId === engagement.id)
+          .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+          .map((entry) => ({
+            id: entry.id,
+            engagement_id: entry.engagementId,
+            title: entry.title,
+            amount: entry.amount,
+            status: entry.status,
+            due_date: entry.dueDate,
+            created_at: entry.createdAt,
+            updated_at: entry.updatedAt,
+          }))
+      })
+    ),
+    queryWithFallback(
+      `SELECT id, engagement_id, provider, meeting_url, agenda, scheduled_at, created_by_user_id, created_at
+       FROM engagement_calls WHERE engagement_id = $1 ORDER BY scheduled_at ASC`,
+      [engagement.id],
+      () => ({
+        rowCount: fallbackCalls.length,
+        rows: fallbackCalls
+          .filter((entry) => entry.engagementId === engagement.id)
+          .sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt))
+          .map((entry) => ({
+            id: entry.id,
+            engagement_id: entry.engagementId,
+            provider: entry.provider,
+            meeting_url: entry.meetingUrl,
+            agenda: entry.agenda,
+            scheduled_at: entry.scheduledAt,
+            created_by_user_id: entry.createdByUserId,
+            created_at: entry.createdAt,
+          }))
+      })
+    ),
+    queryWithFallback(
+      `SELECT engagement_id, baseline_growth, current_growth, baseline_retention, current_retention,
+              baseline_pipeline, current_pipeline, roi_percent, last_updated_at
+       FROM engagement_outcomes WHERE engagement_id = $1 LIMIT 1`,
+      [engagement.id],
+      () => {
+        const found = fallbackOutcomes.find((entry) => entry.engagementId === engagement.id);
+        if (!found) return { rowCount: 0, rows: [] };
+        return {
+          rowCount: 1,
+          rows: [{
+            engagement_id: found.engagementId,
+            baseline_growth: found.baselineGrowth,
+            current_growth: found.currentGrowth,
+            baseline_retention: found.baselineRetention,
+            current_retention: found.currentRetention,
+            baseline_pipeline: found.baselinePipeline,
+            current_pipeline: found.currentPipeline,
+            roi_percent: found.roiPercent,
+            last_updated_at: found.lastUpdatedAt,
+          }]
+        };
+      }
+    ),
+  ]);
+
+  const messages = messagesResult.rows.map(parseEngagementMessageRow);
+  const milestones = milestonesResult.rows.map(parseMilestoneRow);
+  const calls = callsResult.rows.map(parseCallRow);
+  const outcome = outcomeResult.rowCount
+    ? parseOutcomeRow(outcomeResult.rows[0])
+    : {
+        engagementId: engagement.id,
+        baselineGrowth: 0,
+        currentGrowth: 0,
+        baselineRetention: 0,
+        currentRetention: 0,
+        baselinePipeline: 0,
+        currentPipeline: 0,
+        roiPercent: 0,
+        lastUpdatedAt: null,
+      };
+
+  return { engagement, messages, milestones, calls, outcome };
+}
+
+export async function addEngagementMessage({ authUser, engagementId, channel = 'chat', body }) {
+  const workspace = await getEngagementWorkspace(authUser, engagementId);
+  const normalizedChannel = MESSAGE_CHANNELS.has(channel) ? channel : 'chat';
+  const createdAt = new Date().toISOString();
+
+  const result = await queryWithFallback(
+    `INSERT INTO engagement_messages (engagement_id, author_user_id, author_name, channel, body, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING id, engagement_id, author_user_id, author_name, channel, body, created_at`,
+    [workspace.engagement.id, authUser.id, authUser.name, normalizedChannel, body, createdAt],
+    () => {
+      const row = {
+        id: fallbackMessageNextId++,
+        engagement_id: workspace.engagement.id,
+        author_user_id: String(authUser.id),
+        author_name: authUser.name,
+        channel: normalizedChannel,
+        body,
+        created_at: createdAt,
+      };
+      fallbackEngagementMessages.push({
+        id: row.id,
+        engagementId: row.engagement_id,
+        authorUserId: row.author_user_id,
+        authorName: row.author_name,
+        channel: row.channel,
+        body: row.body,
+        createdAt: row.created_at,
+      });
+      persistFallbackStore();
+      return { rowCount: 1, rows: [row] };
+    }
+  );
+
+  return parseEngagementMessageRow(result.rows[0]);
+}
+
+export async function getEngagementMessages(authUser, engagementId) {
+  const workspace = await getEngagementWorkspace(authUser, engagementId);
+  const result = await queryWithFallback(
+    `SELECT id, engagement_id, author_user_id, author_name, channel, body, created_at
+     FROM engagement_messages WHERE engagement_id = $1 ORDER BY created_at ASC`,
+    [workspace.engagement.id],
+    () => ({
+      rowCount: fallbackEngagementMessages.length,
+      rows: fallbackEngagementMessages
+        .filter((entry) => entry.engagementId === workspace.engagement.id)
+        .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+        .map((entry) => ({
+          id: entry.id,
+          engagement_id: entry.engagementId,
+          author_user_id: entry.authorUserId,
+          author_name: entry.authorName,
+          channel: entry.channel,
+          body: entry.body,
+          created_at: entry.createdAt,
+        }))
+    })
+  );
+
+  return result.rows.map(parseEngagementMessageRow);
+}
+
+export async function addEngagementMilestone({ authUser, engagementId, title, amount = 0, dueDate = null }) {
+  const workspace = await getEngagementWorkspace(authUser, engagementId);
+  const now = new Date().toISOString();
+  const normalizedAmount = Math.max(0, Number(amount) || 0);
+
+  const result = await queryWithFallback(
+    `INSERT INTO engagement_milestones (engagement_id, title, amount, status, due_date, created_at, updated_at)
+     VALUES ($1, $2, $3, 'planned', $4, $5, $5)
+     RETURNING id, engagement_id, title, amount, status, due_date, created_at, updated_at`,
+    [workspace.engagement.id, title, normalizedAmount, dueDate, now],
+    () => {
+      const row = {
+        id: fallbackMilestoneNextId++,
+        engagement_id: workspace.engagement.id,
+        title,
+        amount: normalizedAmount,
+        status: 'planned',
+        due_date: dueDate,
+        created_at: now,
+        updated_at: now,
+      };
+      fallbackMilestones.push({
+        id: row.id,
+        engagementId: row.engagement_id,
+        title,
+        amount: normalizedAmount,
+        status: 'planned',
+        dueDate: dueDate || null,
+        createdAt: now,
+        updatedAt: now,
+      });
+      persistFallbackStore();
+      return { rowCount: 1, rows: [row] };
+    }
+  );
+
+  return parseMilestoneRow(result.rows[0]);
+}
+
+export async function getEngagementMilestones(authUser, engagementId) {
+  const workspace = await getEngagementWorkspace(authUser, engagementId);
+  const result = await queryWithFallback(
+    `SELECT id, engagement_id, title, amount, status, due_date, created_at, updated_at
+     FROM engagement_milestones WHERE engagement_id = $1 ORDER BY created_at ASC`,
+    [workspace.engagement.id],
+    () => ({
+      rowCount: fallbackMilestones.length,
+      rows: fallbackMilestones
+        .filter((entry) => entry.engagementId === workspace.engagement.id)
+        .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+        .map((entry) => ({
+          id: entry.id,
+          engagement_id: entry.engagementId,
+          title: entry.title,
+          amount: entry.amount,
+          status: entry.status,
+          due_date: entry.dueDate,
+          created_at: entry.createdAt,
+          updated_at: entry.updatedAt,
+        }))
+    })
+  );
+  return result.rows.map(parseMilestoneRow);
+}
+
+export async function updateEngagementMilestoneStatus({ authUser, engagementId, milestoneId, status }) {
+  const workspace = await getEngagementWorkspace(authUser, engagementId);
+  const nextStatus = MILESTONE_STATUSES.has(status) ? status : 'planned';
+  const now = new Date().toISOString();
+  const result = await queryWithFallback(
+    `UPDATE engagement_milestones
+     SET status = $3, updated_at = $4
+     WHERE id = $1 AND engagement_id = $2
+     RETURNING id, engagement_id, title, amount, status, due_date, created_at, updated_at`,
+    [milestoneId, workspace.engagement.id, nextStatus, now],
+    () => {
+      const milestone = fallbackMilestones.find((entry) => entry.id === milestoneId && entry.engagementId === workspace.engagement.id);
+      if (!milestone) return { rowCount: 0, rows: [] };
+      milestone.status = nextStatus;
+      milestone.updatedAt = now;
+      persistFallbackStore();
+      return {
+        rowCount: 1,
+        rows: [{
+          id: milestone.id,
+          engagement_id: milestone.engagementId,
+          title: milestone.title,
+          amount: milestone.amount,
+          status: milestone.status,
+          due_date: milestone.dueDate,
+          created_at: milestone.createdAt,
+          updated_at: milestone.updatedAt,
+        }]
+      };
+    }
+  );
+
+  if (result.rowCount === 0) {
+    const error = new Error('Milestone not found');
+    error.statusCode = 404;
+    throw error;
+  }
+  return parseMilestoneRow(result.rows[0]);
+}
+
+export async function scheduleEngagementCall({ authUser, engagementId, provider, meetingUrl, agenda = '', scheduledAt }) {
+  const workspace = await getEngagementWorkspace(authUser, engagementId);
+  const now = new Date().toISOString();
+
+  const result = await queryWithFallback(
+    `INSERT INTO engagement_calls (engagement_id, provider, meeting_url, agenda, scheduled_at, created_by_user_id, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     RETURNING id, engagement_id, provider, meeting_url, agenda, scheduled_at, created_by_user_id, created_at`,
+    [workspace.engagement.id, provider, meetingUrl, agenda || null, scheduledAt, authUser.id, now],
+    () => {
+      const row = {
+        id: fallbackCallNextId++,
+        engagement_id: workspace.engagement.id,
+        provider,
+        meeting_url: meetingUrl,
+        agenda: agenda || null,
+        scheduled_at: scheduledAt,
+        created_by_user_id: String(authUser.id),
+        created_at: now,
+      };
+      fallbackCalls.push({
+        id: row.id,
+        engagementId: row.engagement_id,
+        provider: row.provider,
+        meetingUrl: row.meeting_url,
+        agenda: row.agenda,
+        scheduledAt: row.scheduled_at,
+        createdByUserId: row.created_by_user_id,
+        createdAt: row.created_at,
+      });
+      persistFallbackStore();
+      return { rowCount: 1, rows: [row] };
+    }
+  );
+
+  return parseCallRow(result.rows[0]);
+}
+
+export async function getEngagementCalls(authUser, engagementId) {
+  const workspace = await getEngagementWorkspace(authUser, engagementId);
+  const result = await queryWithFallback(
+    `SELECT id, engagement_id, provider, meeting_url, agenda, scheduled_at, created_by_user_id, created_at
+     FROM engagement_calls WHERE engagement_id = $1 ORDER BY scheduled_at ASC`,
+    [workspace.engagement.id],
+    () => ({
+      rowCount: fallbackCalls.length,
+      rows: fallbackCalls
+        .filter((entry) => entry.engagementId === workspace.engagement.id)
+        .sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt))
+        .map((entry) => ({
+          id: entry.id,
+          engagement_id: entry.engagementId,
+          provider: entry.provider,
+          meeting_url: entry.meetingUrl,
+          agenda: entry.agenda,
+          scheduled_at: entry.scheduledAt,
+          created_by_user_id: entry.createdByUserId,
+          created_at: entry.createdAt,
+        }))
+    })
+  );
+  return result.rows.map(parseCallRow);
+}
+
+export async function upsertEngagementOutcome({ authUser, engagementId, baselineGrowth = 0, currentGrowth = 0, baselineRetention = 0, currentRetention = 0, baselinePipeline = 0, currentPipeline = 0 }) {
+  const workspace = await getEngagementWorkspace(authUser, engagementId);
+  const data = {
+    baselineGrowth: Number(baselineGrowth) || 0,
+    currentGrowth: Number(currentGrowth) || 0,
+    baselineRetention: Number(baselineRetention) || 0,
+    currentRetention: Number(currentRetention) || 0,
+    baselinePipeline: Number(baselinePipeline) || 0,
+    currentPipeline: Number(currentPipeline) || 0,
+  };
+  const baselineRevenue = data.baselinePipeline;
+  const revenueLift = data.currentPipeline - data.baselinePipeline;
+  const roiPercent = baselineRevenue > 0 ? (revenueLift / baselineRevenue) * 100 : 0;
+  const now = new Date().toISOString();
+
+  const result = await queryWithFallback(
+    `INSERT INTO engagement_outcomes (
+      engagement_id, baseline_growth, current_growth, baseline_retention, current_retention,
+      baseline_pipeline, current_pipeline, roi_percent, last_updated_at
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    ON CONFLICT (engagement_id)
+    DO UPDATE SET
+      baseline_growth = EXCLUDED.baseline_growth,
+      current_growth = EXCLUDED.current_growth,
+      baseline_retention = EXCLUDED.baseline_retention,
+      current_retention = EXCLUDED.current_retention,
+      baseline_pipeline = EXCLUDED.baseline_pipeline,
+      current_pipeline = EXCLUDED.current_pipeline,
+      roi_percent = EXCLUDED.roi_percent,
+      last_updated_at = EXCLUDED.last_updated_at
+    RETURNING engagement_id, baseline_growth, current_growth, baseline_retention, current_retention, baseline_pipeline, current_pipeline, roi_percent, last_updated_at`,
+    [workspace.engagement.id, data.baselineGrowth, data.currentGrowth, data.baselineRetention, data.currentRetention, data.baselinePipeline, data.currentPipeline, roiPercent, now],
+    () => {
+      const index = fallbackOutcomes.findIndex((entry) => entry.engagementId === workspace.engagement.id);
+      const next = {
+        engagementId: workspace.engagement.id,
+        baselineGrowth: data.baselineGrowth,
+        currentGrowth: data.currentGrowth,
+        baselineRetention: data.baselineRetention,
+        currentRetention: data.currentRetention,
+        baselinePipeline: data.baselinePipeline,
+        currentPipeline: data.currentPipeline,
+        roiPercent,
+        lastUpdatedAt: now,
+      };
+      if (index >= 0) fallbackOutcomes[index] = next;
+      else fallbackOutcomes.push(next);
+      persistFallbackStore();
+      return {
+        rowCount: 1,
+        rows: [{
+          engagement_id: next.engagementId,
+          baseline_growth: next.baselineGrowth,
+          current_growth: next.currentGrowth,
+          baseline_retention: next.baselineRetention,
+          current_retention: next.currentRetention,
+          baseline_pipeline: next.baselinePipeline,
+          current_pipeline: next.currentPipeline,
+          roi_percent: next.roiPercent,
+          last_updated_at: next.lastUpdatedAt,
+        }]
+      };
+    }
+  );
+
+  return parseOutcomeRow(result.rows[0]);
+}
+
+export async function getEngagementOutcome(authUser, engagementId) {
+  const workspace = await getEngagementWorkspace(authUser, engagementId);
+  const result = await queryWithFallback(
+    `SELECT engagement_id, baseline_growth, current_growth, baseline_retention, current_retention,
+            baseline_pipeline, current_pipeline, roi_percent, last_updated_at
+     FROM engagement_outcomes WHERE engagement_id = $1 LIMIT 1`,
+    [workspace.engagement.id],
+    () => {
+      const found = fallbackOutcomes.find((entry) => entry.engagementId === workspace.engagement.id);
+      if (!found) return { rowCount: 0, rows: [] };
+      return {
+        rowCount: 1,
+        rows: [{
+          engagement_id: found.engagementId,
+          baseline_growth: found.baselineGrowth,
+          current_growth: found.currentGrowth,
+          baseline_retention: found.baselineRetention,
+          current_retention: found.currentRetention,
+          baseline_pipeline: found.baselinePipeline,
+          current_pipeline: found.currentPipeline,
+          roi_percent: found.roiPercent,
+          last_updated_at: found.lastUpdatedAt,
+        }]
+      };
+    }
+  );
+
+  if (result.rowCount === 0) {
+    return {
+      engagementId: workspace.engagement.id,
+      baselineGrowth: 0,
+      currentGrowth: 0,
+      baselineRetention: 0,
+      currentRetention: 0,
+      baselinePipeline: 0,
+      currentPipeline: 0,
+      roiPercent: 0,
+      lastUpdatedAt: null,
+    };
+  }
+
+  return parseOutcomeRow(result.rows[0]);
+}
+
 export async function createIntroRequest({ userId, vendorId, message }) {
   const now = new Date().toISOString();
   const result = await queryWithFallback(
@@ -1422,5 +2143,74 @@ function parseIntroRequestRow(row) {
     status: row.status,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+function parseEngagementRow(row) {
+  return {
+    id: row.id,
+    requesterUserId: String(row.requester_user_id),
+    companyId: row.company_id,
+    vendorId: row.vendor_id,
+    title: row.title,
+    status: row.status,
+    pricingModel: row.pricing_model,
+    consultantFee: Number(row.consultant_fee),
+    feeCurrency: row.fee_currency,
+    startedAt: row.started_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function parseEngagementMessageRow(row) {
+  return {
+    id: row.id,
+    engagementId: row.engagement_id,
+    authorUserId: String(row.author_user_id),
+    authorName: row.author_name || '',
+    channel: row.channel,
+    body: row.body,
+    createdAt: row.created_at,
+  };
+}
+
+function parseMilestoneRow(row) {
+  return {
+    id: row.id,
+    engagementId: row.engagement_id,
+    title: row.title,
+    amount: Number(row.amount),
+    status: row.status,
+    dueDate: row.due_date,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function parseCallRow(row) {
+  return {
+    id: row.id,
+    engagementId: row.engagement_id,
+    provider: row.provider,
+    meetingUrl: row.meeting_url,
+    agenda: row.agenda,
+    scheduledAt: row.scheduled_at,
+    createdByUserId: String(row.created_by_user_id),
+    createdAt: row.created_at,
+  };
+}
+
+function parseOutcomeRow(row) {
+  return {
+    engagementId: row.engagement_id,
+    baselineGrowth: Number(row.baseline_growth),
+    currentGrowth: Number(row.current_growth),
+    baselineRetention: Number(row.baseline_retention),
+    currentRetention: Number(row.current_retention),
+    baselinePipeline: Number(row.baseline_pipeline),
+    currentPipeline: Number(row.current_pipeline),
+    roiPercent: Number(row.roi_percent),
+    lastUpdatedAt: row.last_updated_at,
   };
 }

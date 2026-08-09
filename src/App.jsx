@@ -430,6 +430,8 @@ function App() {
             toggleMetricsSharing={toggleMetricsSharing}
             recommendedVendors={recommendedVendors}
             introRequests={introRequests}
+            token={token}
+            apiUrl={API_URL}
           />
         }
       />

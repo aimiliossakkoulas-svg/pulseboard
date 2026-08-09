@@ -49,6 +49,12 @@ function MarketplacePage({ user, vendors, companies, token, apiUrl, handleLogout
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [cancellingVendorId, setCancellingVendorId] = useState('');
   const [requestingVendorId, setRequestingVendorId] = useState('');
+  const [openConsultForm, setOpenConsultForm] = useState(null);
+  const [consultTitle, setConsultTitle] = useState('');
+  const [consultFee, setConsultFee] = useState('2500');
+  const [consultPricingModel, setConsultPricingModel] = useState('milestone');
+  const [startingVendorId, setStartingVendorId] = useState('');
+  const [consultMessage, setConsultMessage] = useState('');
 
   useEffect(() => {
     if (!token) return;
@@ -108,6 +114,34 @@ function MarketplacePage({ user, vendors, companies, token, apiUrl, handleLogout
       await handleLogout();
     } finally {
       setIsLoggingOut(false);
+    }
+  }
+
+  async function handleStartConsultancy(vendorId) {
+    setStartingVendorId(vendorId);
+    setConsultMessage('');
+    try {
+      const response = await fetch(`${apiUrl}/api/engagements`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          vendorId,
+          title: consultTitle || `Consulting engagement with ${vendorId}`,
+          pricingModel: consultPricingModel,
+          consultantFee: Number(consultFee) || 0,
+          feeCurrency: 'USD',
+          introRequestId: pendingRequests[vendorId] || null,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to start consultancy');
+      setConsultMessage(`Engagement #${data.id} started successfully.`);
+      setOpenConsultForm(null);
+      setConsultTitle('');
+    } catch (error) {
+      setConsultMessage(error.message || 'Unable to start consultancy');
+    } finally {
+      setStartingVendorId('');
     }
   }
 
@@ -192,6 +226,7 @@ function MarketplacePage({ user, vendors, companies, token, apiUrl, handleLogout
             const impact = getPipelineImpact(vendor.category, referencePipeline);
             const isPending = Boolean(pendingRequests[vendor.id]);
             const isOpen = openForm === vendor.id;
+            const isConsultOpen = openConsultForm === vendor.id;
             return (
               <article key={vendor.id} className="mp-list-row">
                 <div className="mp-list-main">
@@ -224,14 +259,27 @@ function MarketplacePage({ user, vendors, companies, token, apiUrl, handleLogout
                       </button>
                     </>
                   ) : (
-                    <button
-                      type="button"
-                      className="cta-primary mp-request-btn"
-                      disabled={requestingVendorId === vendor.id}
-                      onClick={() => { setOpenForm(isOpen ? null : vendor.id); setFormError(''); setFormMessage(''); }}
-                    >
-                      {requestingVendorId === vendor.id ? 'Sending...' : (isOpen ? 'Close' : 'Request intro')}
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        className="cta-primary mp-request-btn"
+                        disabled={requestingVendorId === vendor.id}
+                        onClick={() => { setOpenForm(isOpen ? null : vendor.id); setFormError(''); setFormMessage(''); }}
+                      >
+                        {requestingVendorId === vendor.id ? 'Sending...' : (isOpen ? 'Close' : 'Request intro')}
+                      </button>
+                      <button
+                        type="button"
+                        className="mp-cancel-btn"
+                        onClick={() => {
+                          setOpenConsultForm(isConsultOpen ? null : vendor.id);
+                          setConsultMessage('');
+                          if (!consultTitle) setConsultTitle(`Business growth advisory with ${vendor.name}`);
+                        }}
+                      >
+                        {isConsultOpen ? 'Close consulting' : 'Start consultancy'}
+                      </button>
+                    </>
                   )}
                 </div>
                 {isOpen && !isPending && (
@@ -255,6 +303,47 @@ function MarketplacePage({ user, vendors, companies, token, apiUrl, handleLogout
                         {submitting && requestingVendorId === vendor.id ? 'Sending…' : 'Send request'}
                       </button>
                       <button type="button" className="cta-ghost" onClick={() => setOpenForm(null)} disabled={submitting && requestingVendorId === vendor.id}>Cancel</button>
+                    </div>
+                  </div>
+                )}
+                {isConsultOpen && (
+                  <div className="mp-request-form">
+                    <input
+                      className="mp-message-input"
+                      placeholder="Engagement title"
+                      value={consultTitle}
+                      onChange={(e) => setConsultTitle(e.target.value)}
+                    />
+                    <div className="mp-form-actions">
+                      <input
+                        className="mp-message-input"
+                        type="number"
+                        min="0"
+                        step="100"
+                        value={consultFee}
+                        onChange={(e) => setConsultFee(e.target.value)}
+                        placeholder="Consultant fee (USD)"
+                      />
+                      <select
+                        className="mp-message-input"
+                        value={consultPricingModel}
+                        onChange={(e) => setConsultPricingModel(e.target.value)}
+                      >
+                        <option value="milestone">Milestone</option>
+                        <option value="fixed">Fixed</option>
+                        <option value="hourly">Hourly</option>
+                      </select>
+                    </div>
+                    {consultMessage && <p className="error-note">{consultMessage}</p>}
+                    <div className="mp-form-actions">
+                      <button
+                        type="button"
+                        className="cta-primary"
+                        disabled={startingVendorId === vendor.id || !consultTitle.trim()}
+                        onClick={() => handleStartConsultancy(vendor.id)}
+                      >
+                        {startingVendorId === vendor.id ? 'Starting…' : 'Start paid engagement'}
+                      </button>
                     </div>
                   </div>
                 )}

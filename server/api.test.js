@@ -14,7 +14,10 @@ test('auth guards and protected writes work across API endpoints', async (t) => 
 
   const { port } = server.address();
   const baseUrl = `http://127.0.0.1:${port}`;
-  const uniqueEmail = `api-${Date.now()}@example.com`;
+  const uniqueSuffix = Date.now();
+  const uniqueDomain = `apitest-${uniqueSuffix}.com`;
+  const uniqueCompany = `API Test Labs ${uniqueSuffix}`;
+  const uniqueEmail = `api-${uniqueSuffix}@${uniqueDomain}`;
 
   const invalidSignup = await fetch(`${baseUrl}/api/auth/signup`, {
     method: 'POST',
@@ -31,8 +34,8 @@ test('auth guards and protected writes work across API endpoints', async (t) => 
       email: uniqueEmail,
       password: 'verysecure123',
       role: 'Founder',
-      companyName: 'API Test Labs',
-      companyDomain: 'example.com'
+      companyName: uniqueCompany,
+      companyDomain: uniqueDomain
     })
   });
   assert.equal(signup.status, 201);
@@ -45,14 +48,106 @@ test('auth guards and protected writes work across API endpoints', async (t) => 
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       name: 'Second Founder',
-      email: `api-founder-2-${Date.now()}@example.com`,
+      email: `api-founder-2-${uniqueSuffix}@${uniqueDomain}`,
       password: 'verysecure123',
       role: 'Founder',
-      companyName: 'API Test Labs',
-      companyDomain: 'example.com'
+      companyName: uniqueCompany,
+      companyDomain: uniqueDomain
     })
   });
   assert.equal(duplicateFounder.status, 409);
+
+  const engagementCreate = await fetch(`${baseUrl}/api/engagements`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${signupData.token}`
+    },
+    body: JSON.stringify({
+      vendorId: 'vendor-1',
+      title: 'Construction advisory sprint',
+      pricingModel: 'milestone',
+      consultantFee: 5000,
+      feeCurrency: 'USD'
+    })
+  });
+  assert.equal(engagementCreate.status, 201);
+  const engagementData = await getJson(engagementCreate);
+  assert.ok(engagementData.id);
+
+  const messageCreate = await fetch(`${baseUrl}/api/engagements/${engagementData.id}/messages`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${signupData.token}`
+    },
+    body: JSON.stringify({ channel: 'chat', body: 'Kickoff scheduled for next week' })
+  });
+  assert.equal(messageCreate.status, 201);
+
+  const milestoneCreate = await fetch(`${baseUrl}/api/engagements/${engagementData.id}/milestones`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${signupData.token}`
+    },
+    body: JSON.stringify({ title: 'Site operations audit', amount: 2500 })
+  });
+  assert.equal(milestoneCreate.status, 201);
+  const milestoneData = await getJson(milestoneCreate);
+  assert.equal(milestoneData.status, 'planned');
+
+  const milestoneUpdate = await fetch(`${baseUrl}/api/engagements/${engagementData.id}/milestones/${milestoneData.id}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${signupData.token}`
+    },
+    body: JSON.stringify({ status: 'funded' })
+  });
+  assert.equal(milestoneUpdate.status, 200);
+
+  const callCreate = await fetch(`${baseUrl}/api/engagements/${engagementData.id}/calls`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${signupData.token}`
+    },
+    body: JSON.stringify({
+      provider: 'meet',
+      meetingUrl: 'https://meet.google.com/example-room',
+      agenda: 'Kickoff',
+      scheduledAt: new Date(Date.now() + 86400000).toISOString()
+    })
+  });
+  assert.equal(callCreate.status, 201);
+
+  const outcomeUpdate = await fetch(`${baseUrl}/api/engagements/${engagementData.id}/outcome`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${signupData.token}`
+    },
+    body: JSON.stringify({
+      baselineGrowth: 8,
+      currentGrowth: 14,
+      baselineRetention: 70,
+      currentRetention: 78,
+      baselinePipeline: 1.2,
+      currentPipeline: 1.6
+    })
+  });
+  assert.equal(outcomeUpdate.status, 200);
+
+  const workspace = await fetch(`${baseUrl}/api/engagements/${engagementData.id}/workspace`, {
+    headers: { Authorization: `Bearer ${signupData.token}` }
+  });
+  assert.equal(workspace.status, 200);
+  const workspaceData = await getJson(workspace);
+  assert.ok(Array.isArray(workspaceData.messages));
+  assert.ok(Array.isArray(workspaceData.milestones));
+  assert.ok(Array.isArray(workspaceData.calls));
+  assert.equal(typeof workspaceData.outcome.roiPercent, 'number');
 
   const forbiddenPost = await fetch(`${baseUrl}/api/posts`, {
     method: 'POST',

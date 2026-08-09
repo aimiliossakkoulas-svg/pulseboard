@@ -3,13 +3,22 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import {
+  addEngagementMessage,
+  addEngagementMilestone,
   authenticateUser,
   cancelIntroRequest,
+  createEngagement,
   createIntroRequest,
   createOrUpdateCompanyOnboarding,
   connectHubspot,
   createPost,
   createUser,
+  getEngagementCalls,
+  getEngagementMilestones,
+  getEngagementMessages,
+  getEngagementOutcome,
+  getEngagementsByUser,
+  getEngagementWorkspace,
   getCompanyMetrics,
   getCompanyProfile,
   getUserFromSession,
@@ -23,7 +32,10 @@ import {
   getVendors,
   listPosts,
   revokeSession,
-  toggleMetricsSharing
+  scheduleEngagementCall,
+  toggleMetricsSharing,
+  updateEngagementMilestoneStatus,
+  upsertEngagementOutcome
 } from './store.js';
 
 const app = express();
@@ -623,6 +635,253 @@ app.delete('/api/intro-requests/:id', requireAuth, async (req, res) => {
   } catch (error) {
     const status = error.statusCode || 500;
     return res.status(status).json({ error: error.message || 'Failed to cancel intro request' });
+  }
+});
+
+app.get('/api/engagements', requireAuth, async (req, res) => {
+  try {
+    const engagements = await getEngagementsByUser(req.authUser);
+    return res.json(engagements);
+  } catch (error) {
+    return res.status(500).json({ error: 'Failed to fetch engagements' });
+  }
+});
+
+app.post('/api/engagements', requireAuth, async (req, res) => {
+  const vendorId = readTrimmedText(req.body?.vendorId);
+  const title = readTrimmedText(req.body?.title);
+  const pricingModel = readTrimmedText(req.body?.pricingModel).toLowerCase() || 'milestone';
+  const consultantFee = toFiniteNumber(req.body?.consultantFee);
+  const feeCurrency = readTrimmedText(req.body?.feeCurrency).toUpperCase() || 'USD';
+  const introRequestId = Number.isFinite(Number(req.body?.introRequestId)) ? Number(req.body.introRequestId) : null;
+
+  if (!vendorId || vendorId.length > 64) {
+    return res.status(400).json({ error: 'vendorId is required' });
+  }
+
+  if (!title || title.length < 4 || title.length > 255) {
+    return res.status(400).json({ error: 'Title must be between 4 and 255 characters' });
+  }
+
+  if (!['hourly', 'fixed', 'milestone'].includes(pricingModel)) {
+    return res.status(400).json({ error: 'Pricing model must be hourly, fixed, or milestone' });
+  }
+
+  if (Number.isNaN(consultantFee) || consultantFee < 0) {
+    return res.status(400).json({ error: 'Consultant fee must be a positive number' });
+  }
+
+  try {
+    const engagement = await createEngagement({
+      authUser: req.authUser,
+      vendorId,
+      title,
+      pricingModel,
+      consultantFee,
+      feeCurrency,
+      introRequestId
+    });
+    return res.status(201).json(engagement);
+  } catch (error) {
+    const status = error.statusCode || 500;
+    return res.status(status).json({ error: error.message || 'Failed to create engagement' });
+  }
+});
+
+app.get('/api/engagements/:engagementId/workspace', requireAuth, async (req, res) => {
+  const engagementId = parseInt(req.params.engagementId, 10);
+  if (!Number.isFinite(engagementId)) {
+    return res.status(400).json({ error: 'Invalid engagement id' });
+  }
+
+  try {
+    const workspace = await getEngagementWorkspace(req.authUser, engagementId);
+    return res.json(workspace);
+  } catch (error) {
+    const status = error.statusCode || 500;
+    return res.status(status).json({ error: error.message || 'Failed to fetch engagement workspace' });
+  }
+});
+
+app.post('/api/engagements/:engagementId/messages', requireAuth, async (req, res) => {
+  const engagementId = parseInt(req.params.engagementId, 10);
+  const body = readTrimmedText(req.body?.body);
+  const channel = readTrimmedText(req.body?.channel).toLowerCase() || 'chat';
+
+  if (!Number.isFinite(engagementId)) {
+    return res.status(400).json({ error: 'Invalid engagement id' });
+  }
+
+  if (!body || body.length > 4000) {
+    return res.status(400).json({ error: 'Message body is required and must be under 4000 characters' });
+  }
+
+  if (!['chat', 'note', 'call-summary'].includes(channel)) {
+    return res.status(400).json({ error: 'Channel must be chat, note, or call-summary' });
+  }
+
+  try {
+    const message = await addEngagementMessage({ authUser: req.authUser, engagementId, channel, body });
+    return res.status(201).json(message);
+  } catch (error) {
+    const status = error.statusCode || 500;
+    return res.status(status).json({ error: error.message || 'Failed to add message' });
+  }
+});
+
+app.get('/api/engagements/:engagementId/messages', requireAuth, async (req, res) => {
+  const engagementId = parseInt(req.params.engagementId, 10);
+  if (!Number.isFinite(engagementId)) {
+    return res.status(400).json({ error: 'Invalid engagement id' });
+  }
+
+  try {
+    const messages = await getEngagementMessages(req.authUser, engagementId);
+    return res.json(messages);
+  } catch (error) {
+    const status = error.statusCode || 500;
+    return res.status(status).json({ error: error.message || 'Failed to fetch messages' });
+  }
+});
+
+app.post('/api/engagements/:engagementId/milestones', requireAuth, async (req, res) => {
+  const engagementId = parseInt(req.params.engagementId, 10);
+  const title = readTrimmedText(req.body?.title);
+  const amount = toFiniteNumber(req.body?.amount);
+  const dueDate = readTrimmedText(req.body?.dueDate) || null;
+
+  if (!Number.isFinite(engagementId)) {
+    return res.status(400).json({ error: 'Invalid engagement id' });
+  }
+  if (!title || title.length > 255) {
+    return res.status(400).json({ error: 'Milestone title is required and must be under 255 characters' });
+  }
+  if (Number.isNaN(amount) || amount < 0) {
+    return res.status(400).json({ error: 'Milestone amount must be a positive number' });
+  }
+
+  try {
+    const milestone = await addEngagementMilestone({ authUser: req.authUser, engagementId, title, amount, dueDate });
+    return res.status(201).json(milestone);
+  } catch (error) {
+    const status = error.statusCode || 500;
+    return res.status(status).json({ error: error.message || 'Failed to add milestone' });
+  }
+});
+
+app.patch('/api/engagements/:engagementId/milestones/:milestoneId', requireAuth, async (req, res) => {
+  const engagementId = parseInt(req.params.engagementId, 10);
+  const milestoneId = parseInt(req.params.milestoneId, 10);
+  const status = readTrimmedText(req.body?.status);
+
+  if (!Number.isFinite(engagementId) || !Number.isFinite(milestoneId)) {
+    return res.status(400).json({ error: 'Invalid engagement or milestone id' });
+  }
+
+  try {
+    const milestone = await updateEngagementMilestoneStatus({ authUser: req.authUser, engagementId, milestoneId, status });
+    return res.json(milestone);
+  } catch (error) {
+    const code = error.statusCode || 500;
+    return res.status(code).json({ error: error.message || 'Failed to update milestone' });
+  }
+});
+
+app.get('/api/engagements/:engagementId/milestones', requireAuth, async (req, res) => {
+  const engagementId = parseInt(req.params.engagementId, 10);
+  if (!Number.isFinite(engagementId)) {
+    return res.status(400).json({ error: 'Invalid engagement id' });
+  }
+
+  try {
+    const milestones = await getEngagementMilestones(req.authUser, engagementId);
+    return res.json(milestones);
+  } catch (error) {
+    const code = error.statusCode || 500;
+    return res.status(code).json({ error: error.message || 'Failed to fetch milestones' });
+  }
+});
+
+app.post('/api/engagements/:engagementId/calls', requireAuth, async (req, res) => {
+  const engagementId = parseInt(req.params.engagementId, 10);
+  const provider = readTrimmedText(req.body?.provider).toLowerCase();
+  const meetingUrl = readTrimmedText(req.body?.meetingUrl);
+  const agenda = readTrimmedText(req.body?.agenda);
+  const scheduledAt = readTrimmedText(req.body?.scheduledAt);
+
+  if (!Number.isFinite(engagementId)) {
+    return res.status(400).json({ error: 'Invalid engagement id' });
+  }
+  if (!['zoom', 'meet', 'teams', 'other'].includes(provider)) {
+    return res.status(400).json({ error: 'Provider must be zoom, meet, teams, or other' });
+  }
+  if (!meetingUrl || meetingUrl.length > 1500) {
+    return res.status(400).json({ error: 'Meeting URL is required and must be under 1500 characters' });
+  }
+  if (!scheduledAt) {
+    return res.status(400).json({ error: 'scheduledAt is required' });
+  }
+
+  try {
+    const call = await scheduleEngagementCall({ authUser: req.authUser, engagementId, provider, meetingUrl, agenda, scheduledAt });
+    return res.status(201).json(call);
+  } catch (error) {
+    const code = error.statusCode || 500;
+    return res.status(code).json({ error: error.message || 'Failed to schedule call' });
+  }
+});
+
+app.get('/api/engagements/:engagementId/calls', requireAuth, async (req, res) => {
+  const engagementId = parseInt(req.params.engagementId, 10);
+  if (!Number.isFinite(engagementId)) {
+    return res.status(400).json({ error: 'Invalid engagement id' });
+  }
+
+  try {
+    const calls = await getEngagementCalls(req.authUser, engagementId);
+    return res.json(calls);
+  } catch (error) {
+    const code = error.statusCode || 500;
+    return res.status(code).json({ error: error.message || 'Failed to fetch calls' });
+  }
+});
+
+app.put('/api/engagements/:engagementId/outcome', requireAuth, async (req, res) => {
+  const engagementId = parseInt(req.params.engagementId, 10);
+  if (!Number.isFinite(engagementId)) {
+    return res.status(400).json({ error: 'Invalid engagement id' });
+  }
+
+  try {
+    const outcome = await upsertEngagementOutcome({
+      authUser: req.authUser,
+      engagementId,
+      baselineGrowth: toFiniteNumber(req.body?.baselineGrowth),
+      currentGrowth: toFiniteNumber(req.body?.currentGrowth),
+      baselineRetention: toFiniteNumber(req.body?.baselineRetention),
+      currentRetention: toFiniteNumber(req.body?.currentRetention),
+      baselinePipeline: toFiniteNumber(req.body?.baselinePipeline),
+      currentPipeline: toFiniteNumber(req.body?.currentPipeline),
+    });
+    return res.json(outcome);
+  } catch (error) {
+    const code = error.statusCode || 500;
+    return res.status(code).json({ error: error.message || 'Failed to update outcome' });
+  }
+});
+
+app.get('/api/engagements/:engagementId/outcome', requireAuth, async (req, res) => {
+  const engagementId = parseInt(req.params.engagementId, 10);
+  if (!Number.isFinite(engagementId)) {
+    return res.status(400).json({ error: 'Invalid engagement id' });
+  }
+
+  try {
+    const outcome = await getEngagementOutcome(req.authUser, engagementId);
+    return res.json(outcome);
+  } catch (error) {
+    const code = error.statusCode || 500;
+    return res.status(code).json({ error: error.message || 'Failed to fetch outcome' });
   }
 });
 

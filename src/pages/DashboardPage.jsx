@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 function DashboardPage({
@@ -20,11 +20,90 @@ function DashboardPage({
   toggleMetricsSharing,
   recommendedVendors,
   introRequests,
+  token,
+  apiUrl,
 }) {
   const [search, setSearch] = useState('');
   const [isPublishing, setIsPublishing] = useState(false);
   const [sharingCompanyId, setSharingCompanyId] = useState('');
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [engagements, setEngagements] = useState([]);
+  const [selectedEngagementId, setSelectedEngagementId] = useState(null);
+  const [workspace, setWorkspace] = useState(null);
+  const [workspaceLoading, setWorkspaceLoading] = useState(false);
+  const [workspaceError, setWorkspaceError] = useState('');
+  const [messageDraft, setMessageDraft] = useState('');
+  const [messageSending, setMessageSending] = useState(false);
+  const [milestoneTitle, setMilestoneTitle] = useState('');
+  const [milestoneAmount, setMilestoneAmount] = useState('0');
+  const [milestoneDueDate, setMilestoneDueDate] = useState('');
+  const [milestoneSaving, setMilestoneSaving] = useState(false);
+  const [callProvider, setCallProvider] = useState('meet');
+  const [callUrl, setCallUrl] = useState('');
+  const [callAgenda, setCallAgenda] = useState('');
+  const [callScheduledAt, setCallScheduledAt] = useState('');
+  const [callSaving, setCallSaving] = useState(false);
+  const [outcomeSaving, setOutcomeSaving] = useState(false);
+  const [outcomeForm, setOutcomeForm] = useState({
+    baselineGrowth: '0',
+    currentGrowth: '0',
+    baselineRetention: '0',
+    currentRetention: '0',
+    baselinePipeline: '0',
+    currentPipeline: '0',
+  });
+
+  useEffect(() => {
+    async function loadEngagements() {
+      if (!token || !apiUrl) return;
+      try {
+        const response = await fetch(`${apiUrl}/api/engagements`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        setEngagements(data);
+        if (!selectedEngagementId && data[0]?.id) {
+          setSelectedEngagementId(data[0].id);
+        }
+      } catch {
+        // Ignore engagement bootstrap failures in UI.
+      }
+    }
+
+    loadEngagements();
+  }, [token, apiUrl]);
+
+  useEffect(() => {
+    async function loadWorkspace() {
+      if (!token || !apiUrl || !selectedEngagementId) return;
+      setWorkspaceLoading(true);
+      setWorkspaceError('');
+      try {
+        const response = await fetch(`${apiUrl}/api/engagements/${selectedEngagementId}/workspace`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Unable to load workspace');
+        setWorkspace(data);
+        const outcome = data.outcome || {};
+        setOutcomeForm({
+          baselineGrowth: String(outcome.baselineGrowth ?? 0),
+          currentGrowth: String(outcome.currentGrowth ?? 0),
+          baselineRetention: String(outcome.baselineRetention ?? 0),
+          currentRetention: String(outcome.currentRetention ?? 0),
+          baselinePipeline: String(outcome.baselinePipeline ?? 0),
+          currentPipeline: String(outcome.currentPipeline ?? 0),
+        });
+      } catch (error) {
+        setWorkspaceError(error.message || 'Unable to load workspace');
+      } finally {
+        setWorkspaceLoading(false);
+      }
+    }
+
+    loadWorkspace();
+  }, [selectedEngagementId, token, apiUrl]);
 
   async function handleLogoutClick() {
     setIsLoggingOut(true);
@@ -58,6 +137,155 @@ function DashboardPage({
     c.name.toLowerCase().includes(search.toLowerCase()) ||
     c.sector.toLowerCase().includes(search.toLowerCase())
   );
+
+  async function refreshWorkspace() {
+    if (!selectedEngagementId) return;
+    try {
+      const response = await fetch(`${apiUrl}/api/engagements/${selectedEngagementId}/workspace`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      setWorkspace(data);
+    } catch {
+      // ignore refresh failures
+    }
+  }
+
+  async function handleSendMessage() {
+    if (!messageDraft.trim() || !selectedEngagementId) return;
+    setMessageSending(true);
+    try {
+      const response = await fetch(`${apiUrl}/api/engagements/${selectedEngagementId}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ channel: 'chat', body: messageDraft })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to send message');
+      setWorkspace((current) => ({ ...(current || {}), messages: [...(current?.messages || []), data] }));
+      setMessageDraft('');
+    } catch (error) {
+      setWorkspaceError(error.message || 'Unable to send message');
+    } finally {
+      setMessageSending(false);
+    }
+  }
+
+  async function handleAddMilestone() {
+    if (!milestoneTitle.trim() || !selectedEngagementId) return;
+    setMilestoneSaving(true);
+    try {
+      const response = await fetch(`${apiUrl}/api/engagements/${selectedEngagementId}/milestones`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          title: milestoneTitle,
+          amount: Number(milestoneAmount) || 0,
+          dueDate: milestoneDueDate || null
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to add milestone');
+      setWorkspace((current) => ({ ...(current || {}), milestones: [...(current?.milestones || []), data] }));
+      setMilestoneTitle('');
+      setMilestoneAmount('0');
+      setMilestoneDueDate('');
+    } catch (error) {
+      setWorkspaceError(error.message || 'Unable to add milestone');
+    } finally {
+      setMilestoneSaving(false);
+    }
+  }
+
+  async function handleMilestoneStatusChange(milestoneId, status) {
+    if (!selectedEngagementId) return;
+    try {
+      const response = await fetch(`${apiUrl}/api/engagements/${selectedEngagementId}/milestones/${milestoneId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ status })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to update milestone');
+      setWorkspace((current) => ({
+        ...(current || {}),
+        milestones: (current?.milestones || []).map((item) => item.id === milestoneId ? data : item)
+      }));
+    } catch (error) {
+      setWorkspaceError(error.message || 'Unable to update milestone');
+    }
+  }
+
+  async function handleScheduleCall() {
+    if (!selectedEngagementId || !callUrl.trim() || !callScheduledAt) return;
+    setCallSaving(true);
+    try {
+      const response = await fetch(`${apiUrl}/api/engagements/${selectedEngagementId}/calls`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          provider: callProvider,
+          meetingUrl: callUrl,
+          agenda: callAgenda,
+          scheduledAt: new Date(callScheduledAt).toISOString()
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to schedule call');
+      setWorkspace((current) => ({ ...(current || {}), calls: [...(current?.calls || []), data] }));
+      setCallUrl('');
+      setCallAgenda('');
+      setCallScheduledAt('');
+    } catch (error) {
+      setWorkspaceError(error.message || 'Unable to schedule call');
+    } finally {
+      setCallSaving(false);
+    }
+  }
+
+  async function handleSaveOutcome() {
+    if (!selectedEngagementId) return;
+    setOutcomeSaving(true);
+    try {
+      const response = await fetch(`${apiUrl}/api/engagements/${selectedEngagementId}/outcome`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          baselineGrowth: Number(outcomeForm.baselineGrowth) || 0,
+          currentGrowth: Number(outcomeForm.currentGrowth) || 0,
+          baselineRetention: Number(outcomeForm.baselineRetention) || 0,
+          currentRetention: Number(outcomeForm.currentRetention) || 0,
+          baselinePipeline: Number(outcomeForm.baselinePipeline) || 0,
+          currentPipeline: Number(outcomeForm.currentPipeline) || 0,
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to save outcomes');
+      setWorkspace((current) => ({ ...(current || {}), outcome: data }));
+      await refreshWorkspace();
+    } catch (error) {
+      setWorkspaceError(error.message || 'Unable to save outcomes');
+    } finally {
+      setOutcomeSaving(false);
+    }
+  }
+
   return (
     <div className="app-shell">
       <a className="skip-link" href="#dashboard-main-content">Skip to main content</a>
@@ -317,6 +545,129 @@ function DashboardPage({
           </div>
         </section>
       )}
+
+      <section className="panel">
+        <div className="section-header">
+          <div>
+            <p className="eyebrow">Consulting workspace</p>
+            <h2 className="section-title">Engagement communication and outcomes</h2>
+          </div>
+          <span className="section-meta">Phase 1-3 live</span>
+        </div>
+
+        <div className="engagements-toolbar">
+          <select
+            value={selectedEngagementId || ''}
+            onChange={(e) => setSelectedEngagementId(Number(e.target.value) || null)}
+          >
+            <option value="">Select engagement</option>
+            {engagements.map((entry) => (
+              <option key={entry.id} value={entry.id}>
+                #{entry.id} {entry.title} · {entry.vendorId}
+              </option>
+            ))}
+          </select>
+          <span>{engagements.length} active engagement{engagements.length === 1 ? '' : 's'}</span>
+        </div>
+
+        {workspaceLoading && <p>Loading workspace...</p>}
+        {workspaceError && <p className="error-note">{workspaceError}</p>}
+
+        {workspace && (
+          <div className="engagements-grid">
+            <article className="engagement-card">
+              <h3>Communication</h3>
+              <div className="engagement-chat-log">
+                {(workspace.messages || []).map((msg) => (
+                  <div key={msg.id} className="engagement-chat-item">
+                    <strong>{msg.authorName || user.name}</strong>
+                    <span>{msg.channel}</span>
+                    <p>{msg.body}</p>
+                  </div>
+                ))}
+              </div>
+              <textarea
+                rows={3}
+                value={messageDraft}
+                onChange={(e) => setMessageDraft(e.target.value)}
+                placeholder="Share a consulting note or update"
+              />
+              <button type="button" onClick={handleSendMessage} disabled={messageSending || !messageDraft.trim()}>
+                {messageSending ? 'Sending...' : 'Send message'}
+              </button>
+            </article>
+
+            <article className="engagement-card">
+              <h3>Milestones and consultant fees</h3>
+              <div className="engagement-milestones">
+                {(workspace.milestones || []).map((m) => (
+                  <div key={m.id} className="engagement-milestone-row">
+                    <div>
+                      <strong>{m.title}</strong>
+                      <p>${m.amount.toLocaleString()} · {m.status}</p>
+                    </div>
+                    <select value={m.status} onChange={(e) => handleMilestoneStatusChange(m.id, e.target.value)}>
+                      <option value="planned">planned</option>
+                      <option value="funded">funded</option>
+                      <option value="in_progress">in_progress</option>
+                      <option value="submitted">submitted</option>
+                      <option value="approved">approved</option>
+                      <option value="paid">paid</option>
+                    </select>
+                  </div>
+                ))}
+              </div>
+              <input value={milestoneTitle} onChange={(e) => setMilestoneTitle(e.target.value)} placeholder="Milestone title" />
+              <input type="number" min="0" value={milestoneAmount} onChange={(e) => setMilestoneAmount(e.target.value)} placeholder="Amount" />
+              <input type="date" value={milestoneDueDate} onChange={(e) => setMilestoneDueDate(e.target.value)} />
+              <button type="button" onClick={handleAddMilestone} disabled={milestoneSaving || !milestoneTitle.trim()}>
+                {milestoneSaving ? 'Adding...' : 'Add milestone'}
+              </button>
+            </article>
+
+            <article className="engagement-card">
+              <h3>Calls and channels</h3>
+              <div className="engagement-call-list">
+                {(workspace.calls || []).map((call) => (
+                  <div key={call.id} className="engagement-call-row">
+                    <strong>{call.provider}</strong>
+                    <p>{new Date(call.scheduledAt).toLocaleString()}</p>
+                    <a href={call.meetingUrl} target="_blank" rel="noreferrer">Open call link</a>
+                  </div>
+                ))}
+              </div>
+              <select value={callProvider} onChange={(e) => setCallProvider(e.target.value)}>
+                <option value="meet">Google Meet</option>
+                <option value="zoom">Zoom</option>
+                <option value="teams">Microsoft Teams</option>
+                <option value="other">Other</option>
+              </select>
+              <input value={callUrl} onChange={(e) => setCallUrl(e.target.value)} placeholder="Meeting URL" />
+              <input type="datetime-local" value={callScheduledAt} onChange={(e) => setCallScheduledAt(e.target.value)} />
+              <textarea rows={2} value={callAgenda} onChange={(e) => setCallAgenda(e.target.value)} placeholder="Call agenda" />
+              <button type="button" onClick={handleScheduleCall} disabled={callSaving || !callUrl.trim() || !callScheduledAt}>
+                {callSaving ? 'Scheduling...' : 'Schedule call'}
+              </button>
+            </article>
+
+            <article className="engagement-card">
+              <h3>Outcome tracking</h3>
+              <div className="engagement-outcome-grid">
+                <label>Baseline growth %<input type="number" value={outcomeForm.baselineGrowth} onChange={(e) => setOutcomeForm((s) => ({ ...s, baselineGrowth: e.target.value }))} /></label>
+                <label>Current growth %<input type="number" value={outcomeForm.currentGrowth} onChange={(e) => setOutcomeForm((s) => ({ ...s, currentGrowth: e.target.value }))} /></label>
+                <label>Baseline retention %<input type="number" value={outcomeForm.baselineRetention} onChange={(e) => setOutcomeForm((s) => ({ ...s, baselineRetention: e.target.value }))} /></label>
+                <label>Current retention %<input type="number" value={outcomeForm.currentRetention} onChange={(e) => setOutcomeForm((s) => ({ ...s, currentRetention: e.target.value }))} /></label>
+                <label>Baseline pipeline<input type="number" value={outcomeForm.baselinePipeline} onChange={(e) => setOutcomeForm((s) => ({ ...s, baselinePipeline: e.target.value }))} /></label>
+                <label>Current pipeline<input type="number" value={outcomeForm.currentPipeline} onChange={(e) => setOutcomeForm((s) => ({ ...s, currentPipeline: e.target.value }))} /></label>
+              </div>
+              <p className="engagement-roi">ROI: {(workspace.outcome?.roiPercent ?? 0).toFixed(2)}%</p>
+              <button type="button" onClick={handleSaveOutcome} disabled={outcomeSaving}>
+                {outcomeSaving ? 'Saving...' : 'Save outcome snapshot'}
+              </button>
+            </article>
+          </div>
+        )}
+      </section>
 
       <section className="panel composer">
         <h2>Create a post</h2>

@@ -3,14 +3,16 @@ import assert from 'node:assert/strict';
 import { createUser, createPost, getCompanies, toggleMetricsSharing, connectHubspot } from './store.js';
 
 test('persists users, posts, and company updates', async () => {
-  const uniqueEmail = `store-${Date.now()}@example.com`;
+  const uniqueSuffix = Date.now();
+  const uniqueDomain = `storetest-${uniqueSuffix}.com`;
+  const uniqueEmail = `store-${uniqueSuffix}@${uniqueDomain}`;
   const signup = await createUser({
     name: 'Test User',
     email: uniqueEmail,
     password: 'secret',
     role: 'Founder',
-    companyName: 'Store Test Labs',
-    companyDomain: 'example.com'
+    companyName: `Store Test Labs ${uniqueSuffix}`,
+    companyDomain: uniqueDomain
   });
   assert.equal(signup.user.email, uniqueEmail);
   assert.ok(signup.token);

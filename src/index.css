@@ -1796,6 +1796,104 @@ button:disabled,
   margin: 0;
 }
 
+.engagements-toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.engagements-toolbar select {
+  flex: 1;
+  min-height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-input);
+  color: var(--text-main);
+  padding: 8px 10px;
+}
+
+.engagements-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.engagement-card {
+  border-radius: 14px;
+  border: 1px solid var(--border-default);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.engagement-card input,
+.engagement-card select,
+.engagement-card textarea {
+  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-input);
+  color: var(--text-main);
+  padding: 10px;
+}
+
+.engagement-chat-log,
+.engagement-call-list,
+.engagement-milestones {
+  max-height: 220px;
+  overflow: auto;
+  display: grid;
+  gap: 8px;
+}
+
+.engagement-chat-item,
+.engagement-call-row,
+.engagement-milestone-row {
+  border-radius: 10px;
+  border: 1px solid var(--border-default);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 8px;
+}
+
+.engagement-chat-item span {
+  margin-left: 8px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.engagement-chat-item p,
+.engagement-call-row p,
+.engagement-milestone-row p {
+  margin: 6px 0 0;
+}
+
+.engagement-milestone-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.engagement-outcome-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.engagement-outcome-grid label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.engagement-roi {
+  margin: 0;
+  font-weight: 700;
+  color: var(--accent-mint);
+}
+
 :focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
@@ -1852,6 +1950,10 @@ button:disabled,
 
   .auth-social-metrics {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .engagements-grid {
+    grid-template-columns: 1fr;
   }
 
   .company-grid,
@@ -1976,6 +2078,15 @@ button:disabled,
   }
 
   .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .engagements-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .engagement-outcome-grid {
     grid-template-columns: 1fr;
   }
 
