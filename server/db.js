@@ -7,8 +7,49 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const fallbackStorePath = process.env.STORE_FILE_PATH || path.join(__dirname, 'data', 'store.json');
 
+function hasUnresolvedTemplate(value) {
+  return /\$\{\{[^}]+\}\}/.test(String(value || ''));
+}
+
+function buildConnectionStringFromParts() {
+  const host = process.env.PGHOST;
+  const port = process.env.PGPORT;
+  const user = process.env.PGUSER;
+  const password = process.env.PGPASSWORD;
+  const database = process.env.PGDATABASE || process.env.POSTGRES_DB;
+
+  if (!host || !port || !user || !password || !database) {
+    return '';
+  }
+
+  return `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/${database}`;
+}
+
+function resolveConnectionString() {
+  const explicitUrl = String(process.env.DATABASE_URL || '').trim();
+  if (explicitUrl && !hasUnresolvedTemplate(explicitUrl)) {
+    return explicitUrl;
+  }
+
+  const composed = buildConnectionStringFromParts();
+  if (composed) {
+    return composed;
+  }
+
+  return explicitUrl || 'postgresql://postgres:postgres@localhost:5432/socialdb';
+}
+
+function resolveSslConfig() {
+  const sslMode = String(process.env.PGSSLMODE || '').toLowerCase();
+  if (sslMode === 'require') {
+    return { rejectUnauthorized: false };
+  }
+  return undefined;
+}
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/socialdb'
+  connectionString: resolveConnectionString(),
+  ssl: resolveSslConfig()
 });
 
 const memoryStore = {
@@ -92,6 +133,10 @@ async function ensureDatabase() {
   } catch (error) {
     usingMemoryFallback = true;
     databaseReady = true;
+    const details = [error?.code, error?.cause?.code, error?.message, error?.cause?.message]
+      .filter(Boolean)
+      .join(' | ');
+    console.warn(`PostgreSQL connection details: ${details || 'unknown error'}`);
     console.warn('PostgreSQL unavailable, using in-memory fallback store for auth and posts.');
   }
 }
@@ -111,9 +156,13 @@ function isConnectionError(error) {
 
     return (
       code === 'ECONNREFUSED' ||
+      code === 'ENOTFOUND' ||
+      code === 'EAI_AGAIN' ||
       code === '28P01' ||
       code === '08001' ||
       message.includes('econnrefused') ||
+      message.includes('enotfound') ||
+      message.includes('getaddrinfo') ||
       message.includes('connect econnrefused') ||
       message.includes('connection terminated') ||
       message.includes('timeout exceeded')
