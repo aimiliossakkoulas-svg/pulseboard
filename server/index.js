@@ -207,9 +207,12 @@ async function requireAuth(req, res, next) {
   }
 }
 
-app.get('/health', (req, res) => {
+const sendHealth = (req, res) => {
   res.json({ status: 'ok' });
-});
+};
+
+app.get('/health', sendHealth);
+app.get('/api/health', sendHealth);
 
 app.post('/api/company-sync/linkedin-preview', async (req, res) => {
   const linkedinCompanyUrl = readTrimmedText(req.body?.linkedinCompanyUrl);
