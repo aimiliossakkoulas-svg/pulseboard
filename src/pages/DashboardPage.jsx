@@ -747,6 +747,27 @@ function DashboardPage({
                 {outcomeSaving ? 'Saving...' : 'Save outcome snapshot'}
               </button>
             </article>
+
+            <article className="engagement-card">
+              <h3>Payments tab</h3>
+              <div className="engagement-payment-list">
+                {(!workspace.payments || workspace.payments.length === 0) && (
+                  <p className="engagement-checkout-message">No payment events yet.</p>
+                )}
+                {(workspace.payments || []).map((payment) => (
+                  <div key={payment.id} className="engagement-payment-row">
+                    <div>
+                      <strong>{payment.eventType.replace(/_/g, ' ')}</strong>
+                      <p>{payment.provider.toUpperCase()} · {payment.status}</p>
+                    </div>
+                    <div className="engagement-payment-right">
+                      <strong>${Number(payment.amount || 0).toLocaleString()} {payment.currency}</strong>
+                      <span>{new Date(payment.createdAt).toLocaleString()}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </article>
           </div>
         )}
       </section>

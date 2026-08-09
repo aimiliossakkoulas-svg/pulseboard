@@ -18,12 +18,15 @@ const fallbackMilestones = [];
 const fallbackCalls = [];
 const fallbackOutcomes = [];
 const fallbackNotifications = [];
+const fallbackPaymentEvents = [];
+const fallbackProcessedWebhooks = [];
 let fallbackIntroRequestNextId = 1;
 let fallbackEngagementNextId = 1;
 let fallbackMessageNextId = 1;
 let fallbackMilestoneNextId = 1;
 let fallbackCallNextId = 1;
 let fallbackNotificationNextId = 1;
+let fallbackPaymentEventNextId = 1;
 
 function ensureDataDirectory() {
   if (!fs.existsSync(dataDir)) {
@@ -178,6 +181,13 @@ function loadPersistedFallbackStore() {
       fallbackNotifications.splice(0, fallbackNotifications.length, ...parsed.notifications);
       fallbackNotificationNextId = fallbackNotifications.reduce((max, r) => Math.max(max, r.id + 1), 1);
     }
+    if (Array.isArray(parsed.paymentEvents)) {
+      fallbackPaymentEvents.splice(0, fallbackPaymentEvents.length, ...parsed.paymentEvents);
+      fallbackPaymentEventNextId = fallbackPaymentEvents.reduce((max, r) => Math.max(max, r.id + 1), 1);
+    }
+    if (Array.isArray(parsed.processedWebhooks)) {
+      fallbackProcessedWebhooks.splice(0, fallbackProcessedWebhooks.length, ...parsed.processedWebhooks);
+    }
   } catch (error) {
     console.warn('Unable to load persisted fallback store. Continuing with seeded data.');
   }
@@ -207,7 +217,9 @@ function persistFallbackStore() {
         engagementMilestones: fallbackMilestones,
         engagementCalls: fallbackCalls,
         engagementOutcomes: fallbackOutcomes,
-        notifications: fallbackNotifications
+        notifications: fallbackNotifications,
+        paymentEvents: fallbackPaymentEvents,
+        processedWebhooks: fallbackProcessedWebhooks
       }, null, 2),
       'utf8'
     );
@@ -756,6 +768,31 @@ async function bootstrapDatabase() {
         related_engagement_id INTEGER REFERENCES engagements(id) ON DELETE SET NULL,
         read_at TIMESTAMP,
         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS engagement_payments (
+        id SERIAL PRIMARY KEY,
+        engagement_id INTEGER NOT NULL REFERENCES engagements(id) ON DELETE CASCADE,
+        milestone_id INTEGER REFERENCES engagement_milestones(id) ON DELETE SET NULL,
+        provider VARCHAR(30) NOT NULL,
+        event_type VARCHAR(60) NOT NULL,
+        status VARCHAR(30) NOT NULL,
+        amount DOUBLE PRECISION NOT NULL DEFAULT 0,
+        currency VARCHAR(10) NOT NULL DEFAULT 'USD',
+        reference VARCHAR(255),
+        note TEXT,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS billing_webhook_events (
+        id SERIAL PRIMARY KEY,
+        event_id VARCHAR(255) UNIQUE NOT NULL,
+        event_type VARCHAR(120) NOT NULL,
+        processed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
@@ -1631,7 +1668,7 @@ export async function getEngagementWorkspace(authUser, engagementId) {
     throw error;
   }
 
-  const [messagesResult, milestonesResult, callsResult, outcomeResult] = await Promise.all([
+  const [messagesResult, milestonesResult, callsResult, outcomeResult, paymentsResult] = await Promise.all([
     queryWithFallback(
       `SELECT id, engagement_id, author_user_id, author_name, channel, body, created_at
        FROM engagement_messages WHERE engagement_id = $1 ORDER BY created_at ASC`,
@@ -1718,11 +1755,36 @@ export async function getEngagementWorkspace(authUser, engagementId) {
         };
       }
     ),
+    queryWithFallback(
+      `SELECT id, engagement_id, milestone_id, provider, event_type, status, amount, currency, reference, note, created_at
+       FROM engagement_payments WHERE engagement_id = $1 ORDER BY created_at DESC`,
+      [engagement.id],
+      () => ({
+        rowCount: fallbackPaymentEvents.length,
+        rows: fallbackPaymentEvents
+          .filter((entry) => entry.engagementId === engagement.id)
+          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+          .map((entry) => ({
+            id: entry.id,
+            engagement_id: entry.engagementId,
+            milestone_id: entry.milestoneId,
+            provider: entry.provider,
+            event_type: entry.eventType,
+            status: entry.status,
+            amount: entry.amount,
+            currency: entry.currency,
+            reference: entry.reference,
+            note: entry.note,
+            created_at: entry.createdAt,
+          }))
+      })
+    ),
   ]);
 
   const messages = messagesResult.rows.map(parseEngagementMessageRow);
   const milestones = milestonesResult.rows.map(parseMilestoneRow);
   const calls = callsResult.rows.map(parseCallRow);
+  const payments = paymentsResult.rows.map(parsePaymentEventRow);
   const outcome = outcomeResult.rowCount
     ? parseOutcomeRow(outcomeResult.rows[0])
     : {
@@ -1737,7 +1799,7 @@ export async function getEngagementWorkspace(authUser, engagementId) {
         lastUpdatedAt: null,
       };
 
-  return { engagement, messages, milestones, calls, outcome };
+  return { engagement, messages, milestones, calls, outcome, payments };
 }
 
 export async function addEngagementMessage({ authUser, engagementId, channel = 'chat', body }) {
@@ -2172,6 +2234,18 @@ export async function setMilestonePaymentReference({ authUser, engagementId, mil
     relatedEngagementId: workspace.engagement.id,
   });
 
+  await createPaymentEvent({
+    engagementId: workspace.engagement.id,
+    milestoneId,
+    provider,
+    eventType: 'checkout_created',
+    status: 'funded',
+    amount: Number(result.rows[0].amount) || 0,
+    currency: 'USD',
+    reference,
+    note: provider === 'stripe' ? 'Stripe checkout session created' : 'Manual funding session created'
+  });
+
   return parseMilestoneRow(result.rows[0]);
 }
 
@@ -2230,6 +2304,18 @@ export async function markMilestonePaidByReference(paymentReference) {
       relatedEngagementId: row.engagement_id,
     });
   }
+
+  await createPaymentEvent({
+    engagementId: row.engagement_id,
+    milestoneId: row.id,
+    provider: row.payment_provider || 'manual',
+    eventType: 'checkout_completed',
+    status: 'paid',
+    amount: Number(row.amount) || 0,
+    currency: 'USD',
+    reference: row.payment_reference || paymentReference,
+    note: 'Payment confirmed and milestone marked as paid'
+  });
 
   return parseMilestoneRow(row);
 }
@@ -2336,6 +2422,107 @@ export async function markUserNotificationRead(userId, notificationId) {
   }
 
   return parseNotificationRow(result.rows[0]);
+}
+
+export async function createPaymentEvent({ engagementId, milestoneId = null, provider = 'manual', eventType = 'event', status = 'pending', amount = 0, currency = 'USD', reference = '', note = '' }) {
+  const createdAt = new Date().toISOString();
+  const normalizedAmount = Math.max(0, Number(amount) || 0);
+  const normalizedCurrency = String(currency || 'USD').toUpperCase().slice(0, 10) || 'USD';
+  const result = await queryWithFallback(
+    `INSERT INTO engagement_payments (
+      engagement_id, milestone_id, provider, event_type, status, amount, currency, reference, note, created_at
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    RETURNING id, engagement_id, milestone_id, provider, event_type, status, amount, currency, reference, note, created_at`,
+    [engagementId, milestoneId, provider, eventType, status, normalizedAmount, normalizedCurrency, reference || null, note || null, createdAt],
+    () => {
+      const row = {
+        id: fallbackPaymentEventNextId++,
+        engagement_id: engagementId,
+        milestone_id: milestoneId,
+        provider,
+        event_type: eventType,
+        status,
+        amount: normalizedAmount,
+        currency: normalizedCurrency,
+        reference: reference || null,
+        note: note || null,
+        created_at: createdAt,
+      };
+      fallbackPaymentEvents.push({
+        id: row.id,
+        engagementId: row.engagement_id,
+        milestoneId: row.milestone_id,
+        provider: row.provider,
+        eventType: row.event_type,
+        status: row.status,
+        amount: row.amount,
+        currency: row.currency,
+        reference: row.reference,
+        note: row.note,
+        createdAt: row.created_at,
+      });
+      persistFallbackStore();
+      return { rowCount: 1, rows: [row] };
+    }
+  );
+  return parsePaymentEventRow(result.rows[0]);
+}
+
+export async function getEngagementPayments(authUser, engagementId) {
+  const workspace = await getEngagementWorkspace(authUser, engagementId);
+  const result = await queryWithFallback(
+    `SELECT id, engagement_id, milestone_id, provider, event_type, status, amount, currency, reference, note, created_at
+     FROM engagement_payments
+     WHERE engagement_id = $1
+     ORDER BY created_at DESC`,
+    [workspace.engagement.id],
+    () => ({
+      rowCount: fallbackPaymentEvents.length,
+      rows: fallbackPaymentEvents
+        .filter((entry) => entry.engagementId === workspace.engagement.id)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .map((entry) => ({
+          id: entry.id,
+          engagement_id: entry.engagementId,
+          milestone_id: entry.milestoneId,
+          provider: entry.provider,
+          event_type: entry.eventType,
+          status: entry.status,
+          amount: entry.amount,
+          currency: entry.currency,
+          reference: entry.reference,
+          note: entry.note,
+          created_at: entry.createdAt,
+        }))
+    })
+  );
+
+  return result.rows.map(parsePaymentEventRow);
+}
+
+export async function reserveWebhookEvent(eventId, eventType = 'unknown') {
+  if (!eventId) {
+    return false;
+  }
+
+  const result = await queryWithFallback(
+    `INSERT INTO billing_webhook_events (event_id, event_type)
+     VALUES ($1, $2)
+     ON CONFLICT (event_id) DO NOTHING
+     RETURNING id`,
+    [eventId, eventType],
+    () => {
+      if (fallbackProcessedWebhooks.some((entry) => entry.eventId === eventId)) {
+        return { rowCount: 0, rows: [] };
+      }
+
+      fallbackProcessedWebhooks.push({ eventId, eventType, processedAt: new Date().toISOString() });
+      persistFallbackStore();
+      return { rowCount: 1, rows: [{ id: fallbackProcessedWebhooks.length }] };
+    }
+  );
+
+  return result.rowCount > 0;
 }
 
 export async function getEngagementOutcome(authUser, engagementId) {
@@ -2521,6 +2708,22 @@ function parseNotificationRow(row) {
     body: row.body,
     relatedEngagementId: row.related_engagement_id,
     readAt: row.read_at,
+    createdAt: row.created_at,
+  };
+}
+
+function parsePaymentEventRow(row) {
+  return {
+    id: row.id,
+    engagementId: row.engagement_id,
+    milestoneId: row.milestone_id,
+    provider: row.provider,
+    eventType: row.event_type,
+    status: row.status,
+    amount: Number(row.amount),
+    currency: row.currency,
+    reference: row.reference || '',
+    note: row.note || '',
     createdAt: row.created_at,
   };
 }

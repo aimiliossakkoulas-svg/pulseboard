@@ -1840,7 +1840,8 @@ button:disabled,
 
 .engagement-chat-log,
 .engagement-call-list,
-.engagement-milestones {
+.engagement-milestones,
+.engagement-payment-list {
   max-height: 220px;
   overflow: auto;
   display: grid;
@@ -1849,7 +1850,8 @@ button:disabled,
 
 .engagement-chat-item,
 .engagement-call-row,
-.engagement-milestone-row {
+.engagement-milestone-row,
+.engagement-payment-row {
   border-radius: 10px;
   border: 1px solid var(--border-default);
   background: rgba(255, 255, 255, 0.03);
@@ -1873,6 +1875,20 @@ button:disabled,
   justify-content: space-between;
   gap: 10px;
   align-items: center;
+}
+
+.engagement-payment-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.engagement-payment-right {
+  display: grid;
+  text-align: right;
+  color: var(--text-muted);
+  font-size: 0.8rem;
 }
 
 .engagement-outcome-grid {

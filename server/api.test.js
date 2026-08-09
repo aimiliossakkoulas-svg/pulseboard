@@ -158,6 +158,22 @@ test('auth guards and protected writes work across API endpoints', async (t) => 
   });
   assert.equal(webhookComplete.status, 200);
 
+  const webhookDuplicate = await fetch(`${baseUrl}/api/billing/stripe/webhook`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type: 'checkout.session.completed',
+      data: {
+        object: {
+          id: checkoutData.reference
+        }
+      }
+    })
+  });
+  assert.equal(webhookDuplicate.status, 200);
+  const duplicateWebhookData = await getJson(webhookDuplicate);
+  assert.equal(duplicateWebhookData.duplicate, true);
+
   const callCreate = await fetch(`${baseUrl}/api/engagements/${engagementData.id}/calls`, {
     method: 'POST',
     headers: {
@@ -200,6 +216,15 @@ test('auth guards and protected writes work across API endpoints', async (t) => 
   assert.ok(Array.isArray(workspaceData.calls));
   assert.equal(typeof workspaceData.outcome.roiPercent, 'number');
   assert.ok(workspaceData.milestones.some((item) => item.status === 'paid'));
+
+  const payments = await fetch(`${baseUrl}/api/engagements/${engagementData.id}/payments`, {
+    headers: { Authorization: `Bearer ${signupData.token}` }
+  });
+  assert.equal(payments.status, 200);
+  const paymentData = await getJson(payments);
+  assert.ok(Array.isArray(paymentData));
+  assert.ok(paymentData.some((item) => item.eventType === 'checkout_created'));
+  assert.ok(paymentData.some((item) => item.eventType === 'checkout_completed'));
 
   const notifications = await fetch(`${baseUrl}/api/notifications`, {
     headers: { Authorization: `Bearer ${signupData.token}` }

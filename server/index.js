@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import crypto from 'crypto';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import {
@@ -18,6 +19,7 @@ import {
   getEngagementMilestones,
   getEngagementMessages,
   getEngagementOutcome,
+  getEngagementPayments,
   getEngagementsByUser,
   getEngagementWorkspace,
   getUserNotifications,
@@ -35,6 +37,7 @@ import {
   listPosts,
   markMilestonePaidByReference,
   markUserNotificationRead,
+  reserveWebhookEvent,
   revokeSession,
   scheduleEngagementCall,
   setMilestonePaymentReference,
@@ -939,6 +942,21 @@ app.get('/api/engagements/:engagementId/calls', requireAuth, async (req, res) =>
   }
 });
 
+app.get('/api/engagements/:engagementId/payments', requireAuth, async (req, res) => {
+  const engagementId = parseInt(req.params.engagementId, 10);
+  if (!Number.isFinite(engagementId)) {
+    return res.status(400).json({ error: 'Invalid engagement id' });
+  }
+
+  try {
+    const payments = await getEngagementPayments(req.authUser, engagementId);
+    return res.json(payments);
+  } catch (error) {
+    const code = error.statusCode || 500;
+    return res.status(code).json({ error: error.message || 'Failed to fetch payments' });
+  }
+});
+
 app.put('/api/engagements/:engagementId/outcome', requireAuth, async (req, res) => {
   const engagementId = parseInt(req.params.engagementId, 10);
   if (!Number.isFinite(engagementId)) {
@@ -970,6 +988,17 @@ app.post('/api/billing/stripe/webhook', async (req, res) => {
 
     if (stripe && process.env.STRIPE_WEBHOOK_SECRET && req.headers['stripe-signature'] && req.rawBody) {
       event = stripe.webhooks.constructEvent(req.rawBody, req.headers['stripe-signature'], process.env.STRIPE_WEBHOOK_SECRET);
+    }
+
+    const fallbackEventId = `raw-${crypto
+      .createHash('sha256')
+      .update(req.rawBody || Buffer.from(JSON.stringify(req.body || {})))
+      .digest('hex')}`;
+    const eventId = String(event?.id || fallbackEventId);
+    const eventType = String(event?.type || 'unknown');
+    const reserved = await reserveWebhookEvent(eventId, eventType);
+    if (!reserved) {
+      return res.json({ received: true, duplicate: true });
     }
 
     if (event?.type === 'checkout.session.completed') {

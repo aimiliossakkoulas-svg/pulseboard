@@ -65,3 +65,22 @@ The verification script is meant to be a lightweight smoke test for your local D
 - Backend: Node.js on AWS EC2 or ECS
 - Database: Amazon RDS for PostgreSQL
 - Storage: S3 for media uploads
+
+## Stripe billing setup (Railway)
+To enable paid consultancy milestones in production, set these backend environment variables:
+
+1. STRIPE_SECRET_KEY
+2. STRIPE_WEBHOOK_SECRET
+3. WEB_BASE_URL
+
+Example values:
+- STRIPE_SECRET_KEY=sk_live_...
+- STRIPE_WEBHOOK_SECRET=whsec_...
+- WEB_BASE_URL=https://alluring-solace-production-1d29.up.railway.app
+
+Webhook endpoint to configure in Stripe:
+- POST /api/billing/stripe/webhook
+
+Notes:
+- If Stripe keys are not set, checkout falls back to manual funding mode so the workflow still works.
+- Webhook processing is idempotent. Duplicate delivery events are safely ignored.
