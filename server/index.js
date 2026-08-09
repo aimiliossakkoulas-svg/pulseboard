@@ -842,6 +842,9 @@ app.post('/api/engagements/:engagementId/milestones/:milestoneId/checkout', requ
         mode: 'payment',
         success_url: `${origin}/app?checkout=success&engagement=${engagementId}`,
         cancel_url: `${origin}/app?checkout=cancel&engagement=${engagementId}`,
+        managed_payments: {
+          enabled: false
+        },
         line_items: [
           {
             quantity: 1,
