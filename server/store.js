@@ -1448,7 +1448,7 @@ export async function getCompanyProfile(companyId, viewer = null) {
 
   return {
     company: presented,
-    completion: buildProfileCompletion(presented),
+    completion: buildProfileCompletion(company),
     recommendedVendors,
     meetings: companyMeetings.filter((meeting) => meeting.companyId === companyId),
     metrics: metricsVisible ? metrics : []

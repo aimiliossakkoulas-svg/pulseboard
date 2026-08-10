@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
-function CompanyOnboardingPage({ user, handleLogout, apiUrl, token }) {
+function CompanyOnboardingPage({ user, handleLogout, apiUrl, token, onSessionExpired, onOnboardingComplete }) {
   const navigate = useNavigate();
   const claimedCompanyName = user?.companyName || '';
   const companyNameLocked = Boolean(claimedCompanyName);
@@ -77,11 +77,18 @@ function CompanyOnboardingPage({ user, handleLogout, apiUrl, token }) {
       });
 
       const data = await response.json();
+      if (response.status === 401) {
+        onSessionExpired?.(data.error || 'Your session expired. Please sign in again.');
+        return;
+      }
       if (!response.ok) {
         throw new Error(data.error || 'Unable to create company profile');
       }
 
       setMessage('Company onboarding saved. Taking you to the dashboard...');
+      if (onOnboardingComplete) {
+        await onOnboardingComplete(data);
+      }
       navigate('/app');
     } catch (submitError) {
       setError(submitError.message || 'Unable to onboard company.');

@@ -148,18 +148,17 @@ function App() {
         const response = await fetch(`${API_URL}/api/auth/me`, {
           headers: { Authorization: `Bearer ${token}` }
         });
+        const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-          throw new Error('Session expired');
+          handleSessionExpired(data.error || 'Your session expired. Please sign in again.');
+          return;
         }
 
-        const data = await response.json();
         setUser(data.user);
+        window.localStorage.setItem('pulseboard-user', JSON.stringify(data.user));
       } catch (error) {
-        setUser(null);
-        setToken('');
-        window.localStorage.removeItem('pulseboard-user');
-        window.localStorage.removeItem('pulseboard-token');
+        handleSessionExpired('Unable to validate your session. Please sign in again.');
       }
     }
 
@@ -212,7 +211,8 @@ function App() {
       });
       const isSignup = authMode === 'signup';
       setAuthMessage(isSignup ? `Welcome aboard, ${data.user.name}` : `Welcome back, ${data.user.name}`);
-      navigate(isSignup ? '/onboarding' : '/app');
+      const redirectTo = location.state?.from || (isSignup ? '/onboarding' : '/app');
+      navigate(isSignup ? '/onboarding' : redirectTo);
     } catch (error) {
       setAuthMessage(error.message);
     } finally {
@@ -331,6 +331,10 @@ function App() {
             headers: { Authorization: `Bearer ${token}` }
           })
         ]);
+        if (introRes.status === 401 || adviceRes.status === 401) {
+          handleSessionExpired('Your session expired. Please sign in again.');
+          return;
+        }
         if (introRes.ok) {
           setIntroRequests(await introRes.json());
         }
@@ -340,7 +344,12 @@ function App() {
       }
     } catch (error) {
       console.warn('Failed to load network data', error);
+      setStatus('Some network data could not be loaded. Retry or refresh in a moment.');
     }
+  }
+
+  async function refreshNetworkData() {
+    await loadNetworkData();
   }
 
   async function toggleMetricsSharing(companyId) {
@@ -420,7 +429,10 @@ function App() {
             />
           }
         />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route
+          path="*"
+          element={<Navigate to="/login" replace state={{ from: location.pathname }} />}
+        />
       </Routes>
     );
   }
@@ -434,6 +446,7 @@ function App() {
           <DashboardPage
             user={user}
             handleLogout={handleLogout}
+            onSessionExpired={handleSessionExpired}
             heroStats={heroStats}
             activeSection={activeSection}
             setActiveSection={setActiveSection}
@@ -466,6 +479,7 @@ function App() {
             token={token}
             apiUrl={API_URL}
             handleLogout={handleLogout}
+            onSessionExpired={handleSessionExpired}
           />
         }
       />
@@ -477,6 +491,7 @@ function App() {
             handleLogout={handleLogout}
             apiUrl={API_URL}
             token={token}
+            onSessionExpired={handleSessionExpired}
           />
         }
       />
@@ -488,6 +503,8 @@ function App() {
             handleLogout={handleLogout}
             apiUrl={API_URL}
             token={token}
+            onSessionExpired={handleSessionExpired}
+            onOnboardingComplete={refreshNetworkData}
           />
         }
       />

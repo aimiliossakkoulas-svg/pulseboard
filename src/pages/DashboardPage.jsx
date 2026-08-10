@@ -11,6 +11,7 @@ function DashboardPage({
   meetingsData,
   adviceRequests,
   setAdviceRequests,
+  onSessionExpired,
   status,
   posts,
   author,
@@ -434,7 +435,14 @@ function DashboardPage({
         </div>
         <div className="company-grid">
           {filteredCompanies.length === 0 && (
-            <p className="search-empty">No companies match &ldquo;{search}&rdquo;</p>
+            search.trim()
+              ? <p className="search-empty">No companies match &ldquo;{search}&rdquo;</p>
+              : (
+                <p className="search-empty">
+                  No company profiles yet.{' '}
+                  <Link to="/onboarding">Onboard your company</Link> to get started.
+                </p>
+              )
           )}
           {filteredCompanies.map((company) => {
             const isShared = company.metricsSharing === 'accepted';
@@ -518,6 +526,9 @@ function DashboardPage({
           <span>Invite trusted peers, experts, and advisors</span>
         </div>
         <div className="meeting-list">
+          {(!meetingsData || meetingsData.length === 0) && (
+            <p className="advice-empty">No meetups scheduled yet. Check back as the network activates sessions.</p>
+          )}
           {meetingsData.map((meeting) => {
             const company = companies.find((entry) => entry.id === meeting.companyId);
             const visible = company?.metricsSharing === 'accepted';
@@ -569,6 +580,10 @@ function DashboardPage({
                 })
               });
               const data = await response.json();
+              if (response.status === 401) {
+                onSessionExpired?.(data.error || 'Your session expired. Please sign in again.');
+                return;
+              }
               if (!response.ok) {
                 throw new Error(data.error || 'Unable to post advice request');
               }
@@ -661,7 +676,11 @@ function DashboardPage({
                             method: 'PATCH',
                             headers: { Authorization: `Bearer ${token}` }
                           });
-                          const data = await response.json();
+                          const data = await response.json().catch(() => ({}));
+                          if (response.status === 401) {
+                            onSessionExpired?.(data.error || 'Your session expired. Please sign in again.');
+                            return;
+                          }
                           if (!response.ok) {
                             throw new Error(data.error || 'Unable to close request');
                           }
@@ -709,6 +728,10 @@ function DashboardPage({
                               body: JSON.stringify({ message: offerDrafts[request.id] || '' })
                             });
                             const data = await response.json();
+                            if (response.status === 401) {
+                              onSessionExpired?.(data.error || 'Your session expired. Please sign in again.');
+                              return;
+                            }
                             if (!response.ok) {
                               throw new Error(data.error || 'Unable to offer help');
                             }

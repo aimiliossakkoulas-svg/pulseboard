@@ -12,7 +12,7 @@ const METRIC_KEYS = [
 
 const EMPTY_METRICS = Object.fromEntries(METRIC_KEYS.map(({ key }) => [key, '']));
 
-function CompanyProfilePage({ user, handleLogout, apiUrl, token }) {
+function CompanyProfilePage({ user, handleLogout, apiUrl, token, onSessionExpired }) {
   const { companyId } = useParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -44,7 +44,9 @@ function CompanyProfilePage({ user, handleLogout, apiUrl, token }) {
     setError('');
 
     try {
-      const response = await fetch(`${apiUrl}/api/companies/${companyId}/profile`);
+      const response = await fetch(`${apiUrl}/api/companies/${companyId}/profile`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
       const data = await response.json();
 
       if (!response.ok) {
@@ -126,6 +128,10 @@ function CompanyProfilePage({ user, handleLogout, apiUrl, token }) {
         })
       });
       const data = await response.json();
+      if (response.status === 401) {
+        onSessionExpired?.(data.error || 'Your session expired. Please sign in again.');
+        return;
+      }
       if (!response.ok) {
         throw new Error(data.error || 'Unable to update profile');
       }
@@ -168,6 +174,10 @@ function CompanyProfilePage({ user, handleLogout, apiUrl, token }) {
         }),
       });
       const data = await res.json();
+      if (res.status === 401) {
+        onSessionExpired?.(data.error || 'Your session expired. Please sign in again.');
+        return;
+      }
       if (!res.ok) throw new Error(data.error || 'Failed to submit metrics');
       setMetricValues(EMPTY_METRICS);
       setMetricsMessage({ type: 'success', text: 'Metrics submitted and ranking updated.' });
@@ -212,6 +222,9 @@ function CompanyProfilePage({ user, handleLogout, apiUrl, token }) {
         {!loading && error && (
           <section className="panel">
             <p className="error-note">{error}</p>
+            <button type="button" className="card-action-btn" onClick={loadProfile}>
+              Retry
+            </button>
           </section>
         )}
 
@@ -368,6 +381,9 @@ function CompanyProfilePage({ user, handleLogout, apiUrl, token }) {
                 <span>Explainable matching based on fit, outcomes, compatibility, and budget alignment</span>
               </div>
               <div className="vendor-grid">
+                {profile.recommendedVendors.length === 0 && (
+                  <p className="advice-empty">No vendor matches yet for this profile.</p>
+                )}
                 {profile.recommendedVendors.map((vendor) => (
                   <article key={vendor.id} className="vendor-card">
                     <div className="vendor-top">
@@ -386,50 +402,52 @@ function CompanyProfilePage({ user, handleLogout, apiUrl, token }) {
                 ))}
               </div>
             </section>
-            <section className="panel">
-              <div className="section-header">
-                <h2>Upload metrics</h2>
-                <span>Submitted data updates the ranking score immediately</span>
-              </div>
-              <form className="metrics-upload-form" onSubmit={handleMetricsSubmit} noValidate>
-                <div className="metrics-source-row">
-                  <label htmlFor="sourceType">Source</label>
-                  <select
-                    id="sourceType"
-                    value={sourceType}
-                    onChange={(e) => setSourceType(e.target.value)}
-                  >
-                    <option value="manual">Manual</option>
-                    <option value="csv">CSV</option>
-                    <option value="quickbooks">QuickBooks</option>
-                    <option value="hubspot">HubSpot</option>
-                    <option value="stripe">Stripe</option>
-                  </select>
+            {canEdit && (
+              <section className="panel">
+                <div className="section-header">
+                  <h2>Upload metrics</h2>
+                  <span>Submitted data updates the ranking score immediately</span>
                 </div>
-                <div className="metrics-fields-grid">
-                  {METRIC_KEYS.map(({ key, label, placeholder }) => (
-                    <div key={key} className="metric-field">
-                      <label htmlFor={key}>{label}</label>
-                      <input
-                        id={key}
-                        type="number"
-                        placeholder={placeholder}
-                        value={metricValues[key]}
-                        onChange={(e) => setMetricValues((prev) => ({ ...prev, [key]: e.target.value }))}
-                      />
-                    </div>
-                  ))}
-                </div>
-                {metricsMessage.text && (
-                  <p className={metricsMessage.type === 'error' ? 'error-note' : 'success-note'}>
-                    {metricsMessage.text}
-                  </p>
-                )}
-                <button type="submit" disabled={metricsSubmitting}>
-                  {metricsSubmitting ? 'Submitting…' : 'Submit metrics'}
-                </button>
-              </form>
-            </section>
+                <form className="metrics-upload-form" onSubmit={handleMetricsSubmit} noValidate>
+                  <div className="metrics-source-row">
+                    <label htmlFor="sourceType">Source</label>
+                    <select
+                      id="sourceType"
+                      value={sourceType}
+                      onChange={(e) => setSourceType(e.target.value)}
+                    >
+                      <option value="manual">Manual</option>
+                      <option value="csv">CSV</option>
+                      <option value="quickbooks">QuickBooks</option>
+                      <option value="hubspot">HubSpot</option>
+                      <option value="stripe">Stripe</option>
+                    </select>
+                  </div>
+                  <div className="metrics-fields-grid">
+                    {METRIC_KEYS.map(({ key, label, placeholder }) => (
+                      <div key={key} className="metric-field">
+                        <label htmlFor={key}>{label}</label>
+                        <input
+                          id={key}
+                          type="number"
+                          placeholder={placeholder}
+                          value={metricValues[key]}
+                          onChange={(e) => setMetricValues((prev) => ({ ...prev, [key]: e.target.value }))}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  {metricsMessage.text && (
+                    <p className={metricsMessage.type === 'error' ? 'error-note' : 'success-note'}>
+                      {metricsMessage.text}
+                    </p>
+                  )}
+                  <button type="submit" disabled={metricsSubmitting}>
+                    {metricsSubmitting ? 'Submitting…' : 'Submit metrics'}
+                  </button>
+                </form>
+              </section>
+            )}
           </>
         )}
       </main>
