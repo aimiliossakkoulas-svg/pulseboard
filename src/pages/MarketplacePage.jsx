@@ -35,7 +35,7 @@ function getPipelineImpact(category, pipelineStr) {
   };
 }
 
-function MarketplacePage({ user, vendors, companies, token, apiUrl, handleLogout }) {
+function MarketplacePage({ user, vendors, companies, token, apiUrl, handleLogout, onSessionExpired }) {
   const topCompany = companies?.[0];
   const referencePipeline = topCompany?.pipeline || '$2.5M';
 
@@ -54,19 +54,25 @@ function MarketplacePage({ user, vendors, companies, token, apiUrl, handleLogout
   const [consultFee, setConsultFee] = useState('2500');
   const [consultPricingModel, setConsultPricingModel] = useState('milestone');
   const [startingVendorId, setStartingVendorId] = useState('');
-  const [consultMessage, setConsultMessage] = useState('');
+  const [consultMessage, setConsultMessage] = useState({ type: '', text: '' });
 
   useEffect(() => {
     if (!token) return;
     fetch(`${apiUrl}/api/intro-requests`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.ok ? r.json() : [])
+      .then(async (r) => {
+        if (r.status === 401) {
+          onSessionExpired?.('Your session expired. Please sign in again.');
+          return [];
+        }
+        return r.ok ? r.json() : [];
+      })
       .then((requests) => {
         const map = {};
         requests.forEach((r) => { if (r.status === 'pending') map[r.vendorId] = r.id; });
         setPendingRequests(map);
       })
       .catch(() => {});
-  }, [apiUrl, token]);
+  }, [apiUrl, token, onSessionExpired]);
 
   async function handleRequestIntro(vendorId) {
     setRequestingVendorId(vendorId);
@@ -79,6 +85,10 @@ function MarketplacePage({ user, vendors, companies, token, apiUrl, handleLogout
         body: JSON.stringify({ vendorId, message: formMessage }),
       });
       const data = await res.json();
+      if (res.status === 401) {
+        onSessionExpired?.(data.error || 'Your session expired. Please sign in again.');
+        return;
+      }
       if (!res.ok) throw new Error(data.error || 'Failed to send request');
       setPendingRequests((prev) => ({ ...prev, [vendorId]: data.id }));
       setOpenForm(null);
@@ -96,10 +106,14 @@ function MarketplacePage({ user, vendors, companies, token, apiUrl, handleLogout
     if (!requestId) return;
     setCancellingVendorId(vendorId);
     try {
-      await fetch(`${apiUrl}/api/intro-requests/${requestId}`, {
+      const res = await fetch(`${apiUrl}/api/intro-requests/${requestId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (res.status === 401) {
+        onSessionExpired?.('Your session expired. Please sign in again.');
+        return;
+      }
       setPendingRequests((prev) => { const next = { ...prev }; delete next[vendorId]; return next; });
     } catch {
       setFormError('Unable to cancel intro request right now.');
@@ -119,7 +133,7 @@ function MarketplacePage({ user, vendors, companies, token, apiUrl, handleLogout
 
   async function handleStartConsultancy(vendorId) {
     setStartingVendorId(vendorId);
-    setConsultMessage('');
+    setConsultMessage({ type: '', text: '' });
     try {
       const response = await fetch(`${apiUrl}/api/engagements`, {
         method: 'POST',
@@ -134,12 +148,16 @@ function MarketplacePage({ user, vendors, companies, token, apiUrl, handleLogout
         }),
       });
       const data = await response.json();
+      if (response.status === 401) {
+        onSessionExpired?.(data.error || 'Your session expired. Please sign in again.');
+        return;
+      }
       if (!response.ok) throw new Error(data.error || 'Unable to start consultancy');
-      setConsultMessage(`Engagement #${data.id} started successfully.`);
+      setConsultMessage({ type: 'success', text: `Engagement #${data.id} started successfully.` });
       setOpenConsultForm(null);
       setConsultTitle('');
     } catch (error) {
-      setConsultMessage(error.message || 'Unable to start consultancy');
+      setConsultMessage({ type: 'error', text: error.message || 'Unable to start consultancy' });
     } finally {
       setStartingVendorId('');
     }
@@ -221,7 +239,13 @@ function MarketplacePage({ user, vendors, companies, token, apiUrl, handleLogout
         </aside>
 
         <div className="mp-list">
-          {filtered.length === 0 && <p className="mp-empty">No vendors match the current filters.</p>}
+          {filtered.length === 0 && (
+            <p className="mp-empty">
+              {vendors.length === 0
+                ? 'No vendors are available yet. Check back soon.'
+                : 'No vendors match the current filters.'}
+            </p>
+          )}
           {filtered.map((vendor) => {
             const impact = getPipelineImpact(vendor.category, referencePipeline);
             const isPending = Boolean(pendingRequests[vendor.id]);
@@ -334,7 +358,11 @@ function MarketplacePage({ user, vendors, companies, token, apiUrl, handleLogout
                         <option value="hourly">Hourly</option>
                       </select>
                     </div>
-                    {consultMessage && <p className="error-note">{consultMessage}</p>}
+                    {consultMessage.text && (
+                      <p className={consultMessage.type === 'error' ? 'error-note' : 'success-note'}>
+                        {consultMessage.text}
+                      </p>
+                    )}
                     <div className="mp-form-actions">
                       <button
                         type="button"

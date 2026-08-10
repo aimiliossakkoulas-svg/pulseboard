@@ -7,7 +7,7 @@ import CompanyProfilePage from './pages/CompanyProfilePage';
 import CompanyOnboardingPage from './pages/CompanyOnboardingPage';
 import AuthPage from './pages/AuthPage';
 import {
-  adviceRequests,
+  adviceRequests as fallbackAdviceRequests,
   fallbackCompanies,
   fallbackFeed,
   fallbackMeetings,
@@ -58,6 +58,7 @@ function App() {
   const [authSubmitting, setAuthSubmitting] = useState(false);
   const [activeSection, setActiveSection] = useState('profiles');
   const [introRequests, setIntroRequests] = useState([]);
+  const [adviceRequests, setAdviceRequests] = useState(fallbackAdviceRequests);
 
   useEffect(() => {
     const metaDescription = document.querySelector('meta[name="description"]');
@@ -116,8 +117,11 @@ function App() {
 
   useEffect(() => {
     loadPosts();
-    loadNetworkData();
   }, []);
+
+  useEffect(() => {
+    loadNetworkData();
+  }, [token]);
 
   useEffect(() => {
     if (user) {
@@ -144,18 +148,17 @@ function App() {
         const response = await fetch(`${API_URL}/api/auth/me`, {
           headers: { Authorization: `Bearer ${token}` }
         });
+        const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-          throw new Error('Session expired');
+          handleSessionExpired(data.error || 'Your session expired. Please sign in again.');
+          return;
         }
 
-        const data = await response.json();
         setUser(data.user);
+        window.localStorage.setItem('pulseboard-user', JSON.stringify(data.user));
       } catch (error) {
-        setUser(null);
-        setToken('');
-        window.localStorage.removeItem('pulseboard-user');
-        window.localStorage.removeItem('pulseboard-token');
+        handleSessionExpired('Unable to validate your session. Please sign in again.');
       }
     }
 
@@ -208,7 +211,8 @@ function App() {
       });
       const isSignup = authMode === 'signup';
       setAuthMessage(isSignup ? `Welcome aboard, ${data.user.name}` : `Welcome back, ${data.user.name}`);
-      navigate(isSignup ? '/onboarding' : '/app');
+      const redirectTo = location.state?.from || (isSignup ? '/onboarding' : '/app');
+      navigate(isSignup ? '/onboarding' : redirectTo);
     } catch (error) {
       setAuthMessage(error.message);
     } finally {
@@ -279,8 +283,9 @@ function App() {
 
   async function loadNetworkData() {
     try {
+      const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
       const [companiesRes, vendorsRes, meetingsRes, feedRes] = await Promise.all([
-        fetch(`${API_URL}/api/companies/ranked`),
+        fetch(`${API_URL}/api/companies/ranked`, { headers: authHeaders }),
         fetch(`${API_URL}/api/vendors`),
         fetch(`${API_URL}/api/meetings`),
         fetch(`${API_URL}/api/feed`)
@@ -318,16 +323,33 @@ function App() {
       }
 
       if (token) {
-        const introRes = await fetch(`${API_URL}/api/intro-requests`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const [introRes, adviceRes] = await Promise.all([
+          fetch(`${API_URL}/api/intro-requests`, {
+            headers: { Authorization: `Bearer ${token}` }
+          }),
+          fetch(`${API_URL}/api/advice-requests?status=open`, {
+            headers: { Authorization: `Bearer ${token}` }
+          })
+        ]);
+        if (introRes.status === 401 || adviceRes.status === 401) {
+          handleSessionExpired('Your session expired. Please sign in again.');
+          return;
+        }
         if (introRes.ok) {
           setIntroRequests(await introRes.json());
+        }
+        if (adviceRes.ok) {
+          setAdviceRequests(await adviceRes.json());
         }
       }
     } catch (error) {
       console.warn('Failed to load network data', error);
+      setStatus('Some network data could not be loaded. Retry or refresh in a moment.');
     }
+  }
+
+  async function refreshNetworkData() {
+    await loadNetworkData();
   }
 
   async function toggleMetricsSharing(companyId) {
@@ -352,7 +374,14 @@ function App() {
 
       setCompanies((current) =>
         current.map((company) =>
-          company.id === companyId ? updatedCompany : company
+          company.id === companyId
+            ? {
+                ...company,
+                ...updatedCompany,
+                rank: company.rank,
+                metricsVisible: updatedCompany.metricsVisible ?? true
+              }
+            : company
         )
       );
     } catch (error) {
@@ -400,7 +429,10 @@ function App() {
             />
           }
         />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route
+          path="*"
+          element={<Navigate to="/login" replace state={{ from: location.pathname }} />}
+        />
       </Routes>
     );
   }
@@ -414,12 +446,14 @@ function App() {
           <DashboardPage
             user={user}
             handleLogout={handleLogout}
+            onSessionExpired={handleSessionExpired}
             heroStats={heroStats}
             activeSection={activeSection}
             setActiveSection={setActiveSection}
             companies={companies}
             meetingsData={meetingsData}
             adviceRequests={adviceRequests}
+            setAdviceRequests={setAdviceRequests}
             status={status}
             posts={posts}
             author={author}
@@ -445,6 +479,7 @@ function App() {
             token={token}
             apiUrl={API_URL}
             handleLogout={handleLogout}
+            onSessionExpired={handleSessionExpired}
           />
         }
       />
@@ -456,6 +491,7 @@ function App() {
             handleLogout={handleLogout}
             apiUrl={API_URL}
             token={token}
+            onSessionExpired={handleSessionExpired}
           />
         }
       />
@@ -467,6 +503,8 @@ function App() {
             handleLogout={handleLogout}
             apiUrl={API_URL}
             token={token}
+            onSessionExpired={handleSessionExpired}
+            onOnboardingComplete={refreshNetworkData}
           />
         }
       />

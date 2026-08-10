@@ -8,8 +8,12 @@ import {
   addEngagementMilestone,
   authenticateUser,
   cancelIntroRequest,
+  closeAdviceRequest,
+  createAdviceOffer,
+  createAdviceRequest,
   createEngagement,
   createIntroRequest,
+  listAdviceRequests,
   createOrUpdateCompanyOnboarding,
   connectHubspot,
   createPost,
@@ -42,6 +46,10 @@ import {
   scheduleEngagementCall,
   setMilestonePaymentReference,
   toggleMetricsSharing,
+  updateCompanyProfile,
+  presentCompaniesForViewer,
+  presentCompanyForViewer,
+  canManageCompany,
   updateEngagementMilestoneStatus,
   upsertEngagementOutcome
 } from './store.js';
@@ -226,6 +234,26 @@ async function requireAuth(req, res, next) {
   }
 }
 
+async function optionalAuth(req, res, next) {
+  try {
+    const token = getBearerToken(req);
+    if (!token) {
+      req.authUser = null;
+      req.authToken = '';
+      return next();
+    }
+
+    const user = await getUserFromSession(token);
+    req.authUser = user || null;
+    req.authToken = user ? token : '';
+    return next();
+  } catch (error) {
+    req.authUser = null;
+    req.authToken = '';
+    return next();
+  }
+}
+
 const sendHealth = (req, res) => {
   res.json({ status: 'ok' });
 };
@@ -393,32 +421,34 @@ app.post('/api/posts', requireAuth, async (req, res) => {
   }
 });
 
-app.get('/api/companies', async (req, res) => {
+app.get('/api/companies', optionalAuth, async (req, res) => {
   try {
     const companies = await getCompanies();
-    res.json(companies);
+    res.json(presentCompaniesForViewer(companies, req.authUser));
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch companies' });
   }
 });
 
-app.get('/api/companies/ranked', async (req, res) => {
+app.get('/api/companies/ranked', optionalAuth, async (req, res) => {
   try {
     const companies = await getRankedCompanies();
-    res.json(companies);
+    res.json(presentCompaniesForViewer(companies, req.authUser));
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch ranked companies' });
   }
 });
 
 app.post('/api/companies/onboarding', requireAuth, async (req, res) => {
-  const companyName = readTrimmedText(req.body?.companyName);
+  const claimedCompanyName = readTrimmedText(req.authUser?.companyName);
+  const requestedCompanyName = readTrimmedText(req.body?.companyName);
+  const companyName = claimedCompanyName || requestedCompanyName;
   const sector = readTrimmedText(req.body?.sector);
   const summary = readTrimmedText(req.body?.summary);
   const sourceType = readTrimmedText(req.body?.sourceType).toLowerCase() || 'manual';
   const metricsSharing = readTrimmedText(req.body?.metricsSharing).toLowerCase() || 'private';
-  const verificationStatus = readTrimmedText(req.body?.verificationStatus).toLowerCase() || 'self-reported';
-  const confidenceScore = toFiniteNumber(req.body?.confidenceScore);
+  const verificationStatus = 'self-reported';
+  const confidenceScore = 0.75;
   const metrics = normalizeMetricsPayload(req.body?.metrics);
   const capturedAt = readTrimmedText(req.body?.capturedAt) || new Date().toISOString();
 
@@ -438,12 +468,8 @@ app.post('/api/companies/onboarding', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'Source type is invalid' });
   }
 
-  if (!METRIC_VERIFICATION_STATUSES.has(verificationStatus)) {
-    return res.status(400).json({ error: 'Verification status is invalid' });
-  }
-
-  if (Number.isNaN(confidenceScore) || confidenceScore < 0 || confidenceScore > 1) {
-    return res.status(400).json({ error: 'Confidence score must be between 0 and 1' });
+  if (metricsSharing !== 'private' && metricsSharing !== 'accepted') {
+    return res.status(400).json({ error: 'metricsSharing must be private or accepted' });
   }
 
   if (!metrics.length) {
@@ -451,6 +477,11 @@ app.post('/api/companies/onboarding', requireAuth, async (req, res) => {
       error: 'At least one valid metric is required',
       supportedMetricKeys: [...METRIC_ALLOWED_KEYS]
     });
+  }
+
+  const resolvedCompanyId = toCompanyId(companyName);
+  if (req.authUser?.companyId && String(req.authUser.companyId) !== String(resolvedCompanyId)) {
+    return res.status(403).json({ error: 'You can only onboard the company linked to your account' });
   }
 
   try {
@@ -475,11 +506,61 @@ app.post('/api/companies/onboarding', requireAuth, async (req, res) => {
       capturedAt
     });
 
-    const profile = await getCompanyProfile(company.id);
+    const profile = await getCompanyProfile(company.id, req.authUser);
     return res.status(201).json(profile);
   } catch (error) {
     const status = error.statusCode || 500;
     return res.status(status).json({ error: error.message || 'Failed to onboard company' });
+  }
+});
+
+app.patch('/api/companies/:companyId', requireAuth, async (req, res) => {
+  const { companyId } = req.params;
+  const sectorProvided = Object.prototype.hasOwnProperty.call(req.body || {}, 'sector');
+  const summaryProvided = Object.prototype.hasOwnProperty.call(req.body || {}, 'summary');
+  const sharingProvided = Object.prototype.hasOwnProperty.call(req.body || {}, 'metricsSharing');
+  const sector = sectorProvided ? readTrimmedText(req.body?.sector) : undefined;
+  const summary = summaryProvided ? readTrimmedText(req.body?.summary) : undefined;
+  const metricsSharing = sharingProvided
+    ? readTrimmedText(req.body?.metricsSharing).toLowerCase()
+    : undefined;
+
+  if (!COMPANY_ID_PATTERN.test(companyId)) {
+    return res.status(400).json({ error: 'Company id is invalid' });
+  }
+
+  if (!canManageCompany(req.authUser, companyId)) {
+    return res.status(403).json({ error: 'You do not have permission to edit this company profile' });
+  }
+
+  if (!sectorProvided && !summaryProvided && !sharingProvided) {
+    return res.status(400).json({ error: 'Provide sector, summary, and/or metricsSharing to update' });
+  }
+
+  if (sectorProvided && (!sector || sector.length > 100)) {
+    return res.status(400).json({ error: 'Sector is required and must be under 100 characters' });
+  }
+
+  if (summaryProvided && (!summary || summary.length < 20 || summary.length > 500)) {
+    return res.status(400).json({ error: 'Summary must be between 20 and 500 characters' });
+  }
+
+  if (sharingProvided && metricsSharing !== 'private' && metricsSharing !== 'accepted') {
+    return res.status(400).json({ error: 'metricsSharing must be private or accepted' });
+  }
+
+  try {
+    await updateCompanyProfile({
+      companyId,
+      sector,
+      summary,
+      metricsSharing
+    });
+    const profile = await getCompanyProfile(companyId);
+    return res.json(profile);
+  } catch (error) {
+    const status = error.statusCode || 500;
+    return res.status(status).json({ error: error.message || 'Failed to update company profile' });
   }
 });
 
@@ -508,7 +589,7 @@ app.get('/api/vendors/recommended/:companyId', async (req, res) => {
   }
 });
 
-app.get('/api/companies/:companyId/profile', async (req, res) => {
+app.get('/api/companies/:companyId/profile', optionalAuth, async (req, res) => {
   const { companyId } = req.params;
 
   if (!COMPANY_ID_PATTERN.test(companyId)) {
@@ -516,7 +597,7 @@ app.get('/api/companies/:companyId/profile', async (req, res) => {
   }
 
   try {
-    const profile = await getCompanyProfile(companyId);
+    const profile = await getCompanyProfile(companyId, req.authUser);
     res.json(profile);
   } catch (error) {
     const status = error.statusCode || 500;
@@ -524,7 +605,7 @@ app.get('/api/companies/:companyId/profile', async (req, res) => {
   }
 });
 
-app.get('/api/companies/:companyId/metrics', async (req, res) => {
+app.get('/api/companies/:companyId/metrics', optionalAuth, async (req, res) => {
   const { companyId } = req.params;
 
   if (!COMPANY_ID_PATTERN.test(companyId)) {
@@ -532,6 +613,17 @@ app.get('/api/companies/:companyId/metrics', async (req, res) => {
   }
 
   try {
+    const companies = await getCompanies();
+    const company = companies.find((entry) => entry.id === companyId);
+    if (!company) {
+      return res.status(404).json({ error: 'Company not found' });
+    }
+
+    const presented = presentCompanyForViewer(company, req.authUser);
+    if (!presented.metricsVisible) {
+      return res.json([]);
+    }
+
     const metrics = await getCompanyMetrics(companyId);
     return res.json(metrics);
   } catch (error) {
@@ -613,9 +705,13 @@ app.post('/api/companies/:companyId/share', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'Company id is invalid' });
   }
 
+  if (!canManageCompany(req.authUser, companyId)) {
+    return res.status(403).json({ error: 'You do not have permission to change sharing for this company' });
+  }
+
   try {
     const company = await toggleMetricsSharing(companyId);
-    res.json(company);
+    res.json(presentCompanyForViewer(company, req.authUser));
   } catch (error) {
     res.status(404).json({ error: error.message || 'Company not found' });
   }
@@ -643,6 +739,81 @@ app.post('/api/companies/:companyId/hubspot', requireAuth, async (req, res) => {
     res.json(company);
   } catch (error) {
     res.status(404).json({ error: error.message || 'Company not found' });
+  }
+});
+
+app.get('/api/advice-requests', requireAuth, async (req, res) => {
+  const statusFilter = readTrimmedText(req.query?.status).toLowerCase() || 'open';
+  if (!['open', 'closed', 'all'].includes(statusFilter)) {
+    return res.status(400).json({ error: 'status must be open, closed, or all' });
+  }
+
+  try {
+    const requests = await listAdviceRequests({ status: statusFilter });
+    return res.json(requests);
+  } catch (error) {
+    return res.status(500).json({ error: 'Failed to fetch advice requests' });
+  }
+});
+
+app.post('/api/advice-requests', requireAuth, async (req, res) => {
+  const title = readTrimmedText(req.body?.title);
+  const detail = readTrimmedText(req.body?.detail);
+
+  if (!title || title.length < 8 || title.length > 160) {
+    return res.status(400).json({ error: 'Title must be between 8 and 160 characters' });
+  }
+
+  if (!detail || detail.length < 20 || detail.length > 1000) {
+    return res.status(400).json({ error: 'Detail must be between 20 and 1000 characters' });
+  }
+
+  try {
+    const request = await createAdviceRequest({ authUser: req.authUser, title, detail });
+    return res.status(201).json(request);
+  } catch (error) {
+    const status = error.statusCode || 500;
+    return res.status(status).json({ error: error.message || 'Failed to create advice request' });
+  }
+});
+
+app.patch('/api/advice-requests/:id/close', requireAuth, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isFinite(id)) {
+    return res.status(400).json({ error: 'Invalid advice request id' });
+  }
+
+  try {
+    const request = await closeAdviceRequest({ authUser: req.authUser, adviceRequestId: id });
+    return res.json(request);
+  } catch (error) {
+    const status = error.statusCode || 500;
+    return res.status(status).json({ error: error.message || 'Failed to close advice request' });
+  }
+});
+
+app.post('/api/advice-requests/:id/offers', requireAuth, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const message = readTrimmedText(req.body?.message);
+
+  if (!Number.isFinite(id)) {
+    return res.status(400).json({ error: 'Invalid advice request id' });
+  }
+
+  if (!message || message.length < 10 || message.length > 1000) {
+    return res.status(400).json({ error: 'Offer message must be between 10 and 1000 characters' });
+  }
+
+  try {
+    const result = await createAdviceOffer({
+      authUser: req.authUser,
+      adviceRequestId: id,
+      message
+    });
+    return res.status(201).json(result);
+  } catch (error) {
+    const status = error.statusCode || 500;
+    return res.status(status).json({ error: error.message || 'Failed to offer help' });
   }
 });
 

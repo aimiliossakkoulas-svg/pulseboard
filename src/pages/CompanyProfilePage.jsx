@@ -12,7 +12,7 @@ const METRIC_KEYS = [
 
 const EMPTY_METRICS = Object.fromEntries(METRIC_KEYS.map(({ key }) => [key, '']));
 
-function CompanyProfilePage({ user, handleLogout, apiUrl, token }) {
+function CompanyProfilePage({ user, handleLogout, apiUrl, token, onSessionExpired }) {
   const { companyId } = useParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -23,15 +23,60 @@ function CompanyProfilePage({ user, handleLogout, apiUrl, token }) {
   const [metricsSubmitting, setMetricsSubmitting] = useState(false);
   const [metricsMessage, setMetricsMessage] = useState({ type: '', text: '' });
 
+  const [editForm, setEditForm] = useState({
+    sector: '',
+    summary: '',
+    metricsSharing: 'private'
+  });
+  const [editSaving, setEditSaving] = useState(false);
+  const [editMessage, setEditMessage] = useState({ type: '', text: '' });
+
+  const canEdit = Boolean(
+    user
+    && (
+      String(user.role || '') === 'Admin'
+      || (user.companyId && String(user.companyId) === String(companyId))
+    )
+  );
+
+  async function loadProfile() {
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch(`${apiUrl}/api/companies/${companyId}/profile`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Unable to load company profile');
+      }
+
+      setProfile(data);
+      setEditForm({
+        sector: data.company?.sector || '',
+        summary: data.company?.summary || '',
+        metricsSharing: data.company?.metricsSharing || 'private'
+      });
+    } catch (requestError) {
+      setError(requestError.message || 'Unable to load company profile');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
     let active = true;
 
-    async function loadProfile() {
+    async function run() {
       setLoading(true);
       setError('');
 
       try {
-        const response = await fetch(`${apiUrl}/api/companies/${companyId}/profile`);
+        const response = await fetch(`${apiUrl}/api/companies/${companyId}/profile`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        });
         const data = await response.json();
 
         if (!response.ok) {
@@ -40,6 +85,11 @@ function CompanyProfilePage({ user, handleLogout, apiUrl, token }) {
 
         if (active) {
           setProfile(data);
+          setEditForm({
+            sector: data.company?.sector || '',
+            summary: data.company?.summary || '',
+            metricsSharing: data.company?.metricsSharing || 'private'
+          });
         }
       } catch (requestError) {
         if (active) {
@@ -52,12 +102,48 @@ function CompanyProfilePage({ user, handleLogout, apiUrl, token }) {
       }
     }
 
-    loadProfile();
+    run();
 
     return () => {
       active = false;
     };
-  }, [apiUrl, companyId]);
+  }, [apiUrl, companyId, token]);
+
+  async function handleProfileSave(event) {
+    event.preventDefault();
+    setEditMessage({ type: '', text: '' });
+    setEditSaving(true);
+
+    try {
+      const response = await fetch(`${apiUrl}/api/companies/${companyId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          sector: editForm.sector,
+          summary: editForm.summary,
+          metricsSharing: editForm.metricsSharing
+        })
+      });
+      const data = await response.json();
+      if (response.status === 401) {
+        onSessionExpired?.(data.error || 'Your session expired. Please sign in again.');
+        return;
+      }
+      if (!response.ok) {
+        throw new Error(data.error || 'Unable to update profile');
+      }
+
+      setProfile(data);
+      setEditMessage({ type: 'success', text: 'Profile updated.' });
+    } catch (saveError) {
+      setEditMessage({ type: 'error', text: saveError.message || 'Unable to update profile.' });
+    } finally {
+      setEditSaving(false);
+    }
+  }
 
   async function handleMetricsSubmit(e) {
     e.preventDefault();
@@ -88,15 +174,22 @@ function CompanyProfilePage({ user, handleLogout, apiUrl, token }) {
         }),
       });
       const data = await res.json();
+      if (res.status === 401) {
+        onSessionExpired?.(data.error || 'Your session expired. Please sign in again.');
+        return;
+      }
       if (!res.ok) throw new Error(data.error || 'Failed to submit metrics');
       setMetricValues(EMPTY_METRICS);
       setMetricsMessage({ type: 'success', text: 'Metrics submitted and ranking updated.' });
+      await loadProfile();
     } catch (err) {
       setMetricsMessage({ type: 'error', text: err.message });
     } finally {
       setMetricsSubmitting(false);
     }
   }
+
+  const completion = profile?.completion;
 
   return (
     <div className="app-shell">
@@ -129,11 +222,31 @@ function CompanyProfilePage({ user, handleLogout, apiUrl, token }) {
         {!loading && error && (
           <section className="panel">
             <p className="error-note">{error}</p>
+            <button type="button" className="card-action-btn" onClick={loadProfile}>
+              Retry
+            </button>
           </section>
         )}
 
         {!loading && !error && profile && (
           <>
+            {completion && (
+              <section className="panel">
+                <div className="section-header">
+                  <h2>Profile completion</h2>
+                  <span>{completion.filled} of {completion.total} · {completion.percent}%</span>
+                </div>
+                <ul className="completion-checklist" aria-label="Profile completion checklist">
+                  {completion.checklist.map((item) => (
+                    <li key={item.key} className={item.complete ? 'is-complete' : ''}>
+                      <span className="completion-marker" aria-hidden="true">{item.complete ? '✓' : '○'}</span>
+                      {item.label}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
             <section className="panel profile-grid">
               <article className="profile-card">
                 <h2>{profile.company.name}</h2>
@@ -141,7 +254,17 @@ function CompanyProfilePage({ user, handleLogout, apiUrl, token }) {
                 <div className="profile-badges">
                   <span className="pill">#{profile.company.rank.position} · {profile.company.rank.tier}</span>
                   <span className="pill">★ {profile.company.rating}</span>
+                  <span className={`pill ${profile.company.metricsSharing === 'accepted' ? 'pill-success' : 'pill-neutral'}`}>
+                    {profile.company.metricsSharing === 'accepted' ? 'Shared with network' : 'Private metrics'}
+                  </span>
                 </div>
+                <p className="privacy-note">
+                  {profile.company.metricsSharing === 'accepted'
+                    ? 'Growth, retention, and pipeline are visible to the network.'
+                    : profile.company.metricsVisible
+                      ? 'These metrics are private to others. You can see them because you manage this company.'
+                      : 'This company keeps growth, retention, and pipeline private.'}
+                </p>
                 <div className="stats-grid">
                   <div>
                     <strong>Sector</strong>
@@ -181,6 +304,57 @@ function CompanyProfilePage({ user, handleLogout, apiUrl, token }) {
               </article>
             </section>
 
+            {canEdit && (
+              <section className="panel">
+                <div className="section-header">
+                  <h2>Edit profile</h2>
+                  <span>Update sector, summary, and sharing visibility</span>
+                </div>
+                <form className="profile-edit-form" onSubmit={handleProfileSave}>
+                  <label>
+                    Sector
+                    <input
+                      value={editForm.sector}
+                      required
+                      maxLength={100}
+                      onChange={(event) => setEditForm((current) => ({ ...current, sector: event.target.value }))}
+                    />
+                  </label>
+                  <label className="profile-edit-wide">
+                    Summary
+                    <textarea
+                      value={editForm.summary}
+                      required
+                      minLength={20}
+                      maxLength={500}
+                      rows={4}
+                      onChange={(event) => setEditForm((current) => ({ ...current, summary: event.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    Sharing visibility
+                    <select
+                      value={editForm.metricsSharing}
+                      onChange={(event) => setEditForm((current) => ({ ...current, metricsSharing: event.target.value }))}
+                    >
+                      <option value="private">Private</option>
+                      <option value="accepted">Shared</option>
+                    </select>
+                  </label>
+                  <div className="profile-edit-actions">
+                    <button type="submit" disabled={editSaving}>
+                      {editSaving ? 'Saving...' : 'Save profile changes'}
+                    </button>
+                  </div>
+                  {editMessage.text && (
+                    <p className={editMessage.type === 'error' ? 'error-note' : 'success-note'}>
+                      {editMessage.text}
+                    </p>
+                  )}
+                </form>
+              </section>
+            )}
+
             <section className="panel">
               <div className="section-header">
                 <h2>Related meetings</h2>
@@ -207,6 +381,9 @@ function CompanyProfilePage({ user, handleLogout, apiUrl, token }) {
                 <span>Explainable matching based on fit, outcomes, compatibility, and budget alignment</span>
               </div>
               <div className="vendor-grid">
+                {profile.recommendedVendors.length === 0 && (
+                  <p className="advice-empty">No vendor matches yet for this profile.</p>
+                )}
                 {profile.recommendedVendors.map((vendor) => (
                   <article key={vendor.id} className="vendor-card">
                     <div className="vendor-top">
@@ -225,50 +402,52 @@ function CompanyProfilePage({ user, handleLogout, apiUrl, token }) {
                 ))}
               </div>
             </section>
-            <section className="panel">
-              <div className="section-header">
-                <h2>Upload metrics</h2>
-                <span>Submitted data updates the ranking score immediately</span>
-              </div>
-              <form className="metrics-upload-form" onSubmit={handleMetricsSubmit} noValidate>
-                <div className="metrics-source-row">
-                  <label htmlFor="sourceType">Source</label>
-                  <select
-                    id="sourceType"
-                    value={sourceType}
-                    onChange={(e) => setSourceType(e.target.value)}
-                  >
-                    <option value="manual">Manual</option>
-                    <option value="csv">CSV</option>
-                    <option value="quickbooks">QuickBooks</option>
-                    <option value="hubspot">HubSpot</option>
-                    <option value="stripe">Stripe</option>
-                  </select>
+            {canEdit && (
+              <section className="panel">
+                <div className="section-header">
+                  <h2>Upload metrics</h2>
+                  <span>Submitted data updates the ranking score immediately</span>
                 </div>
-                <div className="metrics-fields-grid">
-                  {METRIC_KEYS.map(({ key, label, placeholder }) => (
-                    <div key={key} className="metric-field">
-                      <label htmlFor={key}>{label}</label>
-                      <input
-                        id={key}
-                        type="number"
-                        placeholder={placeholder}
-                        value={metricValues[key]}
-                        onChange={(e) => setMetricValues((prev) => ({ ...prev, [key]: e.target.value }))}
-                      />
-                    </div>
-                  ))}
-                </div>
-                {metricsMessage.text && (
-                  <p className={metricsMessage.type === 'error' ? 'error-note' : 'success-note'}>
-                    {metricsMessage.text}
-                  </p>
-                )}
-                <button type="submit" disabled={metricsSubmitting}>
-                  {metricsSubmitting ? 'Submitting…' : 'Submit metrics'}
-                </button>
-              </form>
-            </section>
+                <form className="metrics-upload-form" onSubmit={handleMetricsSubmit} noValidate>
+                  <div className="metrics-source-row">
+                    <label htmlFor="sourceType">Source</label>
+                    <select
+                      id="sourceType"
+                      value={sourceType}
+                      onChange={(e) => setSourceType(e.target.value)}
+                    >
+                      <option value="manual">Manual</option>
+                      <option value="csv">CSV</option>
+                      <option value="quickbooks">QuickBooks</option>
+                      <option value="hubspot">HubSpot</option>
+                      <option value="stripe">Stripe</option>
+                    </select>
+                  </div>
+                  <div className="metrics-fields-grid">
+                    {METRIC_KEYS.map(({ key, label, placeholder }) => (
+                      <div key={key} className="metric-field">
+                        <label htmlFor={key}>{label}</label>
+                        <input
+                          id={key}
+                          type="number"
+                          placeholder={placeholder}
+                          value={metricValues[key]}
+                          onChange={(e) => setMetricValues((prev) => ({ ...prev, [key]: e.target.value }))}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  {metricsMessage.text && (
+                    <p className={metricsMessage.type === 'error' ? 'error-note' : 'success-note'}>
+                      {metricsMessage.text}
+                    </p>
+                  )}
+                  <button type="submit" disabled={metricsSubmitting}>
+                    {metricsSubmitting ? 'Submitting…' : 'Submit metrics'}
+                  </button>
+                </form>
+              </section>
+            )}
           </>
         )}
       </main>
