@@ -1699,6 +1699,86 @@ button:disabled,
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+.advice-compose-form {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.advice-compose-form label,
+.advice-offer-box label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.advice-compose-form input,
+.advice-compose-form textarea,
+.advice-offer-box textarea {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  color: var(--text-main);
+  padding: 9px 12px;
+  font: inherit;
+}
+
+.advice-compose-actions,
+.advice-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.advice-card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.advice-empty {
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.advice-offers-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.advice-offers-list li {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.advice-offers-list strong {
+  color: var(--text-main);
+  font-size: 0.9rem;
+}
+
+.advice-offers-list span {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.advice-offer-box {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  margin-top: 4px;
+}
+
 .post-card {
   margin-bottom: 12px;
 }
@@ -2426,7 +2506,8 @@ button:disabled,
   border: 1px solid rgba(142, 242, 199, 0.22);
 }
 
-.intro-status-declined {
+.intro-status-declined,
+.intro-status-closed {
   background: rgba(255, 173, 173, 0.1);
   color: var(--danger);
   border: 1px solid rgba(255, 173, 173, 0.2);

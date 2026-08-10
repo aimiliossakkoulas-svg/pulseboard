@@ -344,4 +344,75 @@ test('auth guards and protected writes work across API endpoints', async (t) => 
   const companyMetricsData = await getJson(companyMetrics);
   assert.ok(Array.isArray(companyMetricsData));
   assert.ok(companyMetricsData.some((entry) => entry.sourceType === 'quickbooks'));
+
+  const adviceCreate = await fetch(`${baseUrl}/api/advice-requests`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${signupData.token}`
+    },
+    body: JSON.stringify({
+      title: 'Need help with retention strategy',
+      detail: 'Looking for a founder who has scaled paid onboarding journeys for B2B SaaS.'
+    })
+  });
+  assert.equal(adviceCreate.status, 201);
+  const adviceData = await getJson(adviceCreate);
+  assert.ok(adviceData.id);
+  assert.equal(adviceData.status, 'open');
+  assert.equal(adviceData.title, 'Need help with retention strategy');
+
+  const adviceList = await fetch(`${baseUrl}/api/advice-requests?status=open`, {
+    headers: { Authorization: `Bearer ${signupData.token}` }
+  });
+  assert.equal(adviceList.status, 200);
+  const adviceListData = await getJson(adviceList);
+  assert.ok(adviceListData.some((entry) => entry.id === adviceData.id));
+
+  const helperDomain = `helper-${uniqueSuffix}.com`;
+  const helperSignup = await fetch(`${baseUrl}/api/auth/signup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: 'Peer Helper',
+      email: `helper-${uniqueSuffix}@${helperDomain}`,
+      password: 'verysecure123',
+      role: 'Founder',
+      companyName: `Helper Co ${uniqueSuffix}`,
+      companyDomain: helperDomain
+    })
+  });
+  assert.equal(helperSignup.status, 201);
+  const helperData = await getJson(helperSignup);
+
+  const selfOffer = await fetch(`${baseUrl}/api/advice-requests/${adviceData.id}/offers`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${signupData.token}`
+    },
+    body: JSON.stringify({ message: 'I should not be able to offer help to myself here.' })
+  });
+  assert.equal(selfOffer.status, 400);
+
+  const adviceOffer = await fetch(`${baseUrl}/api/advice-requests/${adviceData.id}/offers`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${helperData.token}`
+    },
+    body: JSON.stringify({ message: 'Happy to share our retention playbook and a 20-minute walkthrough.' })
+  });
+  assert.equal(adviceOffer.status, 201);
+  const adviceOfferData = await getJson(adviceOffer);
+  assert.equal(adviceOfferData.request.offerCount, 1);
+  assert.equal(adviceOfferData.offer.helperName, 'Peer Helper');
+
+  const adviceClose = await fetch(`${baseUrl}/api/advice-requests/${adviceData.id}/close`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${signupData.token}` }
+  });
+  assert.equal(adviceClose.status, 200);
+  const closedAdvice = await getJson(adviceClose);
+  assert.equal(closedAdvice.status, 'closed');
 });

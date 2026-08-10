@@ -8,8 +8,12 @@ import {
   addEngagementMilestone,
   authenticateUser,
   cancelIntroRequest,
+  closeAdviceRequest,
+  createAdviceOffer,
+  createAdviceRequest,
   createEngagement,
   createIntroRequest,
+  listAdviceRequests,
   createOrUpdateCompanyOnboarding,
   connectHubspot,
   createPost,
@@ -643,6 +647,81 @@ app.post('/api/companies/:companyId/hubspot', requireAuth, async (req, res) => {
     res.json(company);
   } catch (error) {
     res.status(404).json({ error: error.message || 'Company not found' });
+  }
+});
+
+app.get('/api/advice-requests', requireAuth, async (req, res) => {
+  const statusFilter = readTrimmedText(req.query?.status).toLowerCase() || 'open';
+  if (!['open', 'closed', 'all'].includes(statusFilter)) {
+    return res.status(400).json({ error: 'status must be open, closed, or all' });
+  }
+
+  try {
+    const requests = await listAdviceRequests({ status: statusFilter });
+    return res.json(requests);
+  } catch (error) {
+    return res.status(500).json({ error: 'Failed to fetch advice requests' });
+  }
+});
+
+app.post('/api/advice-requests', requireAuth, async (req, res) => {
+  const title = readTrimmedText(req.body?.title);
+  const detail = readTrimmedText(req.body?.detail);
+
+  if (!title || title.length < 8 || title.length > 160) {
+    return res.status(400).json({ error: 'Title must be between 8 and 160 characters' });
+  }
+
+  if (!detail || detail.length < 20 || detail.length > 1000) {
+    return res.status(400).json({ error: 'Detail must be between 20 and 1000 characters' });
+  }
+
+  try {
+    const request = await createAdviceRequest({ authUser: req.authUser, title, detail });
+    return res.status(201).json(request);
+  } catch (error) {
+    const status = error.statusCode || 500;
+    return res.status(status).json({ error: error.message || 'Failed to create advice request' });
+  }
+});
+
+app.patch('/api/advice-requests/:id/close', requireAuth, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isFinite(id)) {
+    return res.status(400).json({ error: 'Invalid advice request id' });
+  }
+
+  try {
+    const request = await closeAdviceRequest({ authUser: req.authUser, adviceRequestId: id });
+    return res.json(request);
+  } catch (error) {
+    const status = error.statusCode || 500;
+    return res.status(status).json({ error: error.message || 'Failed to close advice request' });
+  }
+});
+
+app.post('/api/advice-requests/:id/offers', requireAuth, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const message = readTrimmedText(req.body?.message);
+
+  if (!Number.isFinite(id)) {
+    return res.status(400).json({ error: 'Invalid advice request id' });
+  }
+
+  if (!message || message.length < 10 || message.length > 1000) {
+    return res.status(400).json({ error: 'Offer message must be between 10 and 1000 characters' });
+  }
+
+  try {
+    const result = await createAdviceOffer({
+      authUser: req.authUser,
+      adviceRequestId: id,
+      message
+    });
+    return res.status(201).json(result);
+  } catch (error) {
+    const status = error.statusCode || 500;
+    return res.status(status).json({ error: error.message || 'Failed to offer help' });
   }
 });
 

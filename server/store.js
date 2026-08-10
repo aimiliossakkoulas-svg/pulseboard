@@ -12,6 +12,8 @@ const storeFilePath = process.env.STORE_FILE_PATH || path.join(dataDir, 'store.j
 const fallbackSessions = [];
 const fallbackCompanyMetrics = [];
 const fallbackIntroRequests = [];
+const fallbackAdviceRequests = [];
+const fallbackAdviceOffers = [];
 const fallbackEngagements = [];
 const fallbackEngagementMessages = [];
 const fallbackMilestones = [];
@@ -21,6 +23,8 @@ const fallbackNotifications = [];
 const fallbackPaymentEvents = [];
 const fallbackProcessedWebhooks = [];
 let fallbackIntroRequestNextId = 1;
+let fallbackAdviceRequestNextId = 1;
+let fallbackAdviceOfferNextId = 1;
 let fallbackEngagementNextId = 1;
 let fallbackMessageNextId = 1;
 let fallbackMilestoneNextId = 1;
@@ -158,6 +162,14 @@ function loadPersistedFallbackStore() {
       fallbackIntroRequests.splice(0, fallbackIntroRequests.length, ...parsed.introRequests);
       fallbackIntroRequestNextId = fallbackIntroRequests.reduce((max, r) => Math.max(max, r.id + 1), 1);
     }
+    if (Array.isArray(parsed.adviceRequests)) {
+      fallbackAdviceRequests.splice(0, fallbackAdviceRequests.length, ...parsed.adviceRequests);
+      fallbackAdviceRequestNextId = fallbackAdviceRequests.reduce((max, r) => Math.max(max, r.id + 1), 1);
+    }
+    if (Array.isArray(parsed.adviceOffers)) {
+      fallbackAdviceOffers.splice(0, fallbackAdviceOffers.length, ...parsed.adviceOffers);
+      fallbackAdviceOfferNextId = fallbackAdviceOffers.reduce((max, r) => Math.max(max, r.id + 1), 1);
+    }
     if (Array.isArray(parsed.engagements)) {
       fallbackEngagements.splice(0, fallbackEngagements.length, ...parsed.engagements);
       fallbackEngagementNextId = fallbackEngagements.reduce((max, r) => Math.max(max, r.id + 1), 1);
@@ -212,6 +224,8 @@ function persistFallbackStore() {
         feedItems,
         companyMetrics: fallbackCompanyMetrics,
         introRequests: fallbackIntroRequests,
+        adviceRequests: fallbackAdviceRequests,
+        adviceOffers: fallbackAdviceOffers,
         engagements: fallbackEngagements,
         engagementMessages: fallbackEngagementMessages,
         engagementMilestones: fallbackMilestones,
@@ -682,6 +696,31 @@ async function bootstrapDatabase() {
         status VARCHAR(20) NOT NULL DEFAULT 'pending',
         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS advice_requests (
+        id SERIAL PRIMARY KEY,
+        author_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        author_name VARCHAR(100) NOT NULL,
+        company_id VARCHAR(64),
+        title VARCHAR(160) NOT NULL,
+        detail TEXT NOT NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'open',
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS advice_offers (
+        id SERIAL PRIMARY KEY,
+        advice_request_id INTEGER NOT NULL REFERENCES advice_requests(id) ON DELETE CASCADE,
+        helper_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        helper_name VARCHAR(100) NOT NULL,
+        message TEXT NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
@@ -2567,6 +2606,269 @@ export async function getEngagementOutcome(authUser, engagementId) {
   }
 
   return parseOutcomeRow(result.rows[0]);
+}
+
+function parseAdviceOfferRow(row) {
+  return {
+    id: row.id,
+    adviceRequestId: Number(row.advice_request_id),
+    helperUserId: String(row.helper_user_id),
+    helperName: row.helper_name,
+    message: row.message,
+    createdAt: row.created_at
+  };
+}
+
+function parseAdviceRequestRow(row, offers = []) {
+  return {
+    id: row.id,
+    authorUserId: String(row.author_user_id),
+    authorName: row.author_name,
+    companyId: row.company_id || '',
+    title: row.title,
+    detail: row.detail,
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    offers: offers.map(parseAdviceOfferRow),
+    offerCount: offers.length
+  };
+}
+
+async function getAdviceOffersForRequest(adviceRequestId) {
+  const result = await queryWithFallback(
+    `SELECT id, advice_request_id, helper_user_id, helper_name, message, created_at
+     FROM advice_offers
+     WHERE advice_request_id = $1
+     ORDER BY created_at ASC`,
+    [adviceRequestId],
+    () => ({
+      rows: fallbackAdviceOffers
+        .filter((entry) => Number(entry.adviceRequestId) === Number(adviceRequestId))
+        .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+        .map((entry) => ({
+          id: entry.id,
+          advice_request_id: entry.adviceRequestId,
+          helper_user_id: entry.helperUserId,
+          helper_name: entry.helperName,
+          message: entry.message,
+          created_at: entry.createdAt
+        }))
+    })
+  );
+
+  return result.rows;
+}
+
+export async function createAdviceRequest({ authUser, title, detail }) {
+  const now = new Date().toISOString();
+  const companyId = authUser.companyId || null;
+
+  const result = await queryWithFallback(
+    `INSERT INTO advice_requests (
+      author_user_id, author_name, company_id, title, detail, status, created_at, updated_at
+    ) VALUES ($1, $2, $3, $4, $5, 'open', $6, $6)
+    RETURNING id, author_user_id, author_name, company_id, title, detail, status, created_at, updated_at`,
+    [authUser.id, authUser.name, companyId, title, detail, now],
+    () => {
+      const record = {
+        id: fallbackAdviceRequestNextId++,
+        authorUserId: String(authUser.id),
+        authorName: authUser.name,
+        companyId: companyId || '',
+        title,
+        detail,
+        status: 'open',
+        createdAt: now,
+        updatedAt: now
+      };
+      fallbackAdviceRequests.push(record);
+      persistFallbackStore();
+      return {
+        rowCount: 1,
+        rows: [{
+          id: record.id,
+          author_user_id: record.authorUserId,
+          author_name: record.authorName,
+          company_id: record.companyId || null,
+          title: record.title,
+          detail: record.detail,
+          status: record.status,
+          created_at: record.createdAt,
+          updated_at: record.updatedAt
+        }]
+      };
+    }
+  );
+
+  if (!result.rowCount) {
+    throw new Error('Failed to create advice request');
+  }
+
+  return parseAdviceRequestRow(result.rows[0], []);
+}
+
+export async function listAdviceRequests({ status = 'open' } = {}) {
+  const normalizedStatus = status === 'all' ? null : (status || 'open');
+  const result = await queryWithFallback(
+    normalizedStatus
+      ? `SELECT id, author_user_id, author_name, company_id, title, detail, status, created_at, updated_at
+         FROM advice_requests
+         WHERE status = $1
+         ORDER BY created_at DESC`
+      : `SELECT id, author_user_id, author_name, company_id, title, detail, status, created_at, updated_at
+         FROM advice_requests
+         ORDER BY created_at DESC`,
+    normalizedStatus ? [normalizedStatus] : [],
+    () => {
+      const rows = fallbackAdviceRequests
+        .filter((entry) => !normalizedStatus || entry.status === normalizedStatus)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .map((entry) => ({
+          id: entry.id,
+          author_user_id: entry.authorUserId,
+          author_name: entry.authorName,
+          company_id: entry.companyId || null,
+          title: entry.title,
+          detail: entry.detail,
+          status: entry.status,
+          created_at: entry.createdAt,
+          updated_at: entry.updatedAt
+        }));
+      return { rowCount: rows.length, rows };
+    }
+  );
+
+  const withOffers = await Promise.all(
+    result.rows.map(async (row) => {
+      const offers = await getAdviceOffersForRequest(row.id);
+      return parseAdviceRequestRow(row, offers);
+    })
+  );
+
+  return withOffers;
+}
+
+export async function closeAdviceRequest({ authUser, adviceRequestId }) {
+  const now = new Date().toISOString();
+  const result = await queryWithFallback(
+    `UPDATE advice_requests
+     SET status = 'closed', updated_at = $3
+     WHERE id = $1 AND author_user_id = $2 AND status = 'open'
+     RETURNING id, author_user_id, author_name, company_id, title, detail, status, created_at, updated_at`,
+    [adviceRequestId, authUser.id, now],
+    () => {
+      const entry = fallbackAdviceRequests.find(
+        (item) => Number(item.id) === Number(adviceRequestId)
+          && String(item.authorUserId) === String(authUser.id)
+          && item.status === 'open'
+      );
+      if (!entry) {
+        return { rowCount: 0, rows: [] };
+      }
+      entry.status = 'closed';
+      entry.updatedAt = now;
+      persistFallbackStore();
+      return {
+        rowCount: 1,
+        rows: [{
+          id: entry.id,
+          author_user_id: entry.authorUserId,
+          author_name: entry.authorName,
+          company_id: entry.companyId || null,
+          title: entry.title,
+          detail: entry.detail,
+          status: entry.status,
+          created_at: entry.createdAt,
+          updated_at: entry.updatedAt
+        }]
+      };
+    }
+  );
+
+  if (!result.rowCount) {
+    const error = new Error('Advice request not found or already closed');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const offers = await getAdviceOffersForRequest(result.rows[0].id);
+  return parseAdviceRequestRow(result.rows[0], offers);
+}
+
+export async function createAdviceOffer({ authUser, adviceRequestId, message }) {
+  const requests = await listAdviceRequests({ status: 'all' });
+  const target = requests.find((entry) => Number(entry.id) === Number(adviceRequestId));
+  if (!target) {
+    const error = new Error('Advice request not found');
+    error.statusCode = 404;
+    throw error;
+  }
+  if (target.status !== 'open') {
+    const error = new Error('This advice request is closed');
+    error.statusCode = 400;
+    throw error;
+  }
+  if (String(target.authorUserId) === String(authUser.id)) {
+    const error = new Error('You cannot offer help on your own advice request');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const existingOffer = target.offers.find((offer) => String(offer.helperUserId) === String(authUser.id));
+  if (existingOffer) {
+    const error = new Error('You already offered help on this request');
+    error.statusCode = 409;
+    throw error;
+  }
+
+  const now = new Date().toISOString();
+  const result = await queryWithFallback(
+    `INSERT INTO advice_offers (advice_request_id, helper_user_id, helper_name, message, created_at)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING id, advice_request_id, helper_user_id, helper_name, message, created_at`,
+    [adviceRequestId, authUser.id, authUser.name, message, now],
+    () => {
+      const record = {
+        id: fallbackAdviceOfferNextId++,
+        adviceRequestId: Number(adviceRequestId),
+        helperUserId: String(authUser.id),
+        helperName: authUser.name,
+        message,
+        createdAt: now
+      };
+      fallbackAdviceOffers.push(record);
+      persistFallbackStore();
+      return {
+        rowCount: 1,
+        rows: [{
+          id: record.id,
+          advice_request_id: record.adviceRequestId,
+          helper_user_id: record.helperUserId,
+          helper_name: record.helperName,
+          message: record.message,
+          created_at: record.createdAt
+        }]
+      };
+    }
+  );
+
+  const offer = parseAdviceOfferRow(result.rows[0]);
+  await createUserNotification({
+    userId: target.authorUserId,
+    type: 'advice_offer',
+    title: 'New peer support offer',
+    body: `${authUser.name} offered help on “${target.title}”: ${message.slice(0, 160)}`
+  });
+
+  return {
+    offer,
+    request: {
+      ...target,
+      offers: [...target.offers, offer],
+      offerCount: target.offers.length + 1
+    }
+  };
 }
 
 export async function createIntroRequest({ userId, vendorId, message }) {

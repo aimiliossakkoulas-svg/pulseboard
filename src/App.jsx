@@ -7,7 +7,7 @@ import CompanyProfilePage from './pages/CompanyProfilePage';
 import CompanyOnboardingPage from './pages/CompanyOnboardingPage';
 import AuthPage from './pages/AuthPage';
 import {
-  adviceRequests,
+  adviceRequests as fallbackAdviceRequests,
   fallbackCompanies,
   fallbackFeed,
   fallbackMeetings,
@@ -58,6 +58,7 @@ function App() {
   const [authSubmitting, setAuthSubmitting] = useState(false);
   const [activeSection, setActiveSection] = useState('profiles');
   const [introRequests, setIntroRequests] = useState([]);
+  const [adviceRequests, setAdviceRequests] = useState(fallbackAdviceRequests);
 
   useEffect(() => {
     const metaDescription = document.querySelector('meta[name="description"]');
@@ -116,8 +117,11 @@ function App() {
 
   useEffect(() => {
     loadPosts();
-    loadNetworkData();
   }, []);
+
+  useEffect(() => {
+    loadNetworkData();
+  }, [token]);
 
   useEffect(() => {
     if (user) {
@@ -318,11 +322,19 @@ function App() {
       }
 
       if (token) {
-        const introRes = await fetch(`${API_URL}/api/intro-requests`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const [introRes, adviceRes] = await Promise.all([
+          fetch(`${API_URL}/api/intro-requests`, {
+            headers: { Authorization: `Bearer ${token}` }
+          }),
+          fetch(`${API_URL}/api/advice-requests?status=open`, {
+            headers: { Authorization: `Bearer ${token}` }
+          })
+        ]);
         if (introRes.ok) {
           setIntroRequests(await introRes.json());
+        }
+        if (adviceRes.ok) {
+          setAdviceRequests(await adviceRes.json());
         }
       }
     } catch (error) {
@@ -420,6 +432,7 @@ function App() {
             companies={companies}
             meetingsData={meetingsData}
             adviceRequests={adviceRequests}
+            setAdviceRequests={setAdviceRequests}
             status={status}
             posts={posts}
             author={author}
