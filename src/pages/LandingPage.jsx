@@ -40,21 +40,31 @@ function LandingPage({ heroStats, previewFeedItems }) {
     <div className="app-shell">
       <a className="skip-link" href="#main-content">Skip to main content</a>
       <LandingHero
-        heroStats={heroStats}
         onSignupClick={() => navigate('/signup')}
         onSigninClick={() => navigate('/login')}
       />
 
       <main id="main-content">
 
+      <section className="panel landing-portal-strip" aria-label="Network highlights">
+        <div className="landing-stats-bar">
+          {heroStats.map((stat) => (
+            <div key={stat.label} className="landing-stat" role="group" aria-label={stat.label}>
+              <strong>{stat.value}</strong>
+              <span>{stat.label}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* Profile card preview — community forward */}
       <section className="panel" aria-label="Ranked company profiles">
         <div className="section-header">
           <div>
-            <p className="eyebrow">Network rankings</p>
-            <h2 className="section-title">Top profiles in the network</h2>
+            <p className="eyebrow">Partnership signal</p>
+            <h2 className="section-title">Companies ready for the right introductions</h2>
           </div>
-          <span className="section-meta">Updated in real time based on verified signal</span>
+          <span className="section-meta">Ranked on verified operating context</span>
         </div>
         <div className="lp-company-grid">
           {PREVIEW_COMPANIES.map((c) => (
@@ -108,17 +118,17 @@ function LandingPage({ heroStats, previewFeedItems }) {
       <section className="panel narrative-grid" aria-label="Why PulseBoard">
         <article className="narrative-card">
           <p className="eyebrow">The problem</p>
-          <h3>Most business networks reward noise, not verified performance.</h3>
+          <h3>Most partnership channels reward noise, not verified performance.</h3>
           <p>
             Founders and operators are forced to choose between oversharing publicly or staying invisible.
             PulseBoard keeps high-signal collaboration private until trust is established.
           </p>
         </article>
         <article className="narrative-card">
-          <p className="eyebrow">The shift</p>
-          <h3>Selective visibility turns profile quality into a compounding advantage.</h3>
+          <p className="eyebrow">The portal</p>
+          <h3>Selective visibility turns company quality into warmer introductions.</h3>
           <p>
-            Share growth metrics with approved peers, run focused sessions, and unlock premium partner access
+            Share growth metrics with approved peers, run focused sessions, and unlock partner access
             based on reputation and real operating context — not follower count.
           </p>
         </article>
