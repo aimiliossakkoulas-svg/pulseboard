@@ -501,5 +501,4 @@ test('auth guards and protected writes work across API endpoints', async (t) => 
   assert.equal(adviceClose.status, 200);
   const closedAdvice = await getJson(adviceClose);
   assert.equal(closedAdvice.status, 'closed');
->>>>>>> origin/cursor/advisory-requests-26a4
 });
