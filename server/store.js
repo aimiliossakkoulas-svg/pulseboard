@@ -1013,6 +1013,50 @@ export async function getCompanies() {
   return result.rows.map(parseCompanyRow);
 }
 
+function isFilledProfileValue(key, value) {
+  const text = String(value || '').trim();
+  if (!text) {
+    return false;
+  }
+
+  if (key === 'growth' && (text === '+0%' || text === '0%' || text === '0')) {
+    return false;
+  }
+  if (key === 'retention' && (text === '0%' || text === '0')) {
+    return false;
+  }
+  if (key === 'pipeline' && (text === '$0.0M' || text === '$0M' || text === '0')) {
+    return false;
+  }
+  if (key === 'review' && text === 'New profile') {
+    return false;
+  }
+
+  return true;
+}
+
+export function buildProfileCompletion(company = {}) {
+  const checklist = [
+    { key: 'name', label: 'Company name' },
+    { key: 'sector', label: 'Sector' },
+    { key: 'summary', label: 'Summary' },
+    { key: 'growth', label: 'Growth metric' },
+    { key: 'retention', label: 'Retention metric' },
+    { key: 'pipeline', label: 'Pipeline metric' },
+    { key: 'metricsSharing', label: 'Sharing preference' },
+    { key: 'review', label: 'Peer review signal' }
+  ].map((field) => ({
+    ...field,
+    complete: isFilledProfileValue(field.key, company[field.key])
+  }));
+
+  const filled = checklist.filter((item) => item.complete).length;
+  const total = checklist.length;
+  const percent = total === 0 ? 0 : Number(((filled / total) * 100).toFixed(1));
+
+  return { percent, filled, total, checklist };
+}
+
 export async function createOrUpdateCompanyOnboarding({
   companyName,
   sector,
@@ -1308,9 +1352,86 @@ export async function getCompanyProfile(companyId) {
 
   return {
     company,
+    completion: buildProfileCompletion(company),
     recommendedVendors,
     meetings: companyMeetings.filter((meeting) => meeting.companyId === companyId),
     metrics
+  };
+}
+
+export async function updateCompanyProfile({ companyId, sector, summary, metricsSharing }) {
+  const companyList = await getCompanies();
+  const existing = companyList.find((entry) => entry.id === companyId);
+  if (!existing) {
+    const error = new Error('Company not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const nextSector = sector === undefined ? existing.sector : sector;
+  const nextSummary = summary === undefined ? existing.summary : summary;
+  const nextSharing = metricsSharing === undefined
+    ? existing.metricsSharing
+    : (metricsSharing === 'accepted' ? 'accepted' : 'private');
+
+  const result = await queryWithFallback(
+    `UPDATE companies
+     SET sector = $2,
+         summary = $3,
+         metrics_sharing = $4
+     WHERE id = $1
+     RETURNING
+       id, name, sector, summary, growth, retention, pipeline,
+       hubspot_status, rating, review, metrics_sharing,
+       hubspot_deals, hubspot_campaigns, hubspot_meetings,
+       hubspot_portal, hubspot_owner, hubspot_connected_at`,
+    [companyId, nextSector, nextSummary, nextSharing],
+    () => {
+      const company = companies.find((entry) => entry.id === companyId);
+      if (!company) {
+        throw new Error('Company not found');
+      }
+
+      company.sector = nextSector;
+      company.summary = nextSummary;
+      company.metricsSharing = nextSharing;
+      persistFallbackStore();
+
+      return {
+        rowCount: 1,
+        rows: [{
+          id: company.id,
+          name: company.name,
+          sector: company.sector,
+          summary: company.summary,
+          growth: company.growth,
+          retention: company.retention,
+          pipeline: company.pipeline,
+          hubspot_status: company.hubspotStatus,
+          rating: company.rating,
+          review: company.review,
+          metrics_sharing: company.metricsSharing,
+          hubspot_deals: company.hubspotMetrics.deals,
+          hubspot_campaigns: company.hubspotMetrics.campaigns,
+          hubspot_meetings: company.hubspotMetrics.meetings,
+          hubspot_portal: company.hubspotMetrics.portal,
+          hubspot_owner: company.hubspotMetrics.owner,
+          hubspot_connected_at: company.hubspotMetrics.connectedAt
+        }]
+      };
+    }
+  );
+
+  if (!result.rowCount) {
+    const error = new Error('Company not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const company = parseCompanyRow(result.rows[0]);
+  return {
+    company,
+    completion: buildProfileCompletion(company)
   };
 }
 

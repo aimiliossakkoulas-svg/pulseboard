@@ -1,16 +1,16 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 function CompanyOnboardingPage({ user, handleLogout, apiUrl, token }) {
   const navigate = useNavigate();
+  const claimedCompanyName = user?.companyName || '';
+  const companyNameLocked = Boolean(claimedCompanyName);
   const [form, setForm] = useState({
-    companyName: '',
+    companyName: claimedCompanyName,
     sector: '',
     summary: '',
     sourceType: 'manual',
     metricsSharing: 'private',
-    verificationStatus: 'self-reported',
-    confidenceScore: '0.75',
     growthPercent: '',
     retentionPercent: '',
     pipelineMillions: '',
@@ -21,6 +21,24 @@ function CompanyOnboardingPage({ user, handleLogout, apiUrl, token }) {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+
+  const checklist = useMemo(() => {
+    const hasMetric = Boolean(
+      form.growthPercent || form.retentionPercent || form.pipelineMillions
+      || form.dealsActive || form.campaignsLive || form.meetingsQuarter
+    );
+
+    return [
+      { key: 'name', label: 'Company name', complete: form.companyName.trim().length >= 2 },
+      { key: 'sector', label: 'Sector', complete: form.sector.trim().length > 0 },
+      { key: 'summary', label: 'Summary', complete: form.summary.trim().length >= 20 },
+      { key: 'metrics', label: 'Baseline metrics', complete: hasMetric },
+      { key: 'sharing', label: 'Sharing preference', complete: Boolean(form.metricsSharing) }
+    ];
+  }, [form]);
+
+  const completedCount = checklist.filter((item) => item.complete).length;
+  const completionPercent = Math.round((completedCount / checklist.length) * 100);
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -54,8 +72,6 @@ function CompanyOnboardingPage({ user, handleLogout, apiUrl, token }) {
           summary: form.summary,
           sourceType: form.sourceType,
           metricsSharing: form.metricsSharing,
-          verificationStatus: form.verificationStatus,
-          confidenceScore: Number(form.confidenceScore),
           metrics
         })
       });
@@ -65,8 +81,8 @@ function CompanyOnboardingPage({ user, handleLogout, apiUrl, token }) {
         throw new Error(data.error || 'Unable to create company profile');
       }
 
-      setMessage('Company onboarding saved. Redirecting to profile...');
-      navigate(`/company/${data.company.id}`);
+      setMessage('Company onboarding saved. Taking you to the dashboard...');
+      navigate('/app');
     } catch (submitError) {
       setError(submitError.message || 'Unable to onboard company.');
     } finally {
@@ -97,11 +113,35 @@ function CompanyOnboardingPage({ user, handleLogout, apiUrl, token }) {
 
       <main id="onboarding-main">
         <section className="panel onboarding-panel">
-          <h2>Company details</h2>
+          <div className="section-header">
+            <h2>Company details</h2>
+            <span>Profile setup {completionPercent}% complete</span>
+          </div>
+
+          <ul className="completion-checklist" aria-label="Onboarding progress">
+            {checklist.map((item) => (
+              <li key={item.key} className={item.complete ? 'is-complete' : ''}>
+                <span className="completion-marker" aria-hidden="true">{item.complete ? '✓' : '○'}</span>
+                {item.label}
+              </li>
+            ))}
+          </ul>
+
           <form onSubmit={handleSubmit} className="onboarding-form">
             <label>
               Company name
-              <input value={form.companyName} required minLength={2} maxLength={255} onChange={(event) => updateField('companyName', event.target.value)} placeholder="Acme Growth Labs" />
+              <input
+                value={form.companyName}
+                required
+                minLength={2}
+                maxLength={255}
+                readOnly={companyNameLocked}
+                onChange={(event) => updateField('companyName', event.target.value)}
+                placeholder="Acme Growth Labs"
+              />
+              {companyNameLocked && (
+                <span className="field-hint">Locked to the company claimed at signup.</span>
+              )}
             </label>
             <label>
               Sector
@@ -121,20 +161,6 @@ function CompanyOnboardingPage({ user, handleLogout, apiUrl, token }) {
                 <option value="hubspot">HubSpot</option>
                 <option value="stripe">Stripe</option>
               </select>
-            </label>
-
-            <label>
-              Verification status
-              <select value={form.verificationStatus} onChange={(event) => updateField('verificationStatus', event.target.value)}>
-                <option value="self-reported">Self-reported</option>
-                <option value="reviewed">Reviewed</option>
-                <option value="verified">Verified</option>
-              </select>
-            </label>
-
-            <label>
-              Confidence score (0-1)
-              <input type="number" min="0" max="1" step="0.01" value={form.confidenceScore} onChange={(event) => updateField('confidenceScore', event.target.value)} />
             </label>
 
             <label>

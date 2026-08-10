@@ -298,13 +298,11 @@ test('auth guards and protected writes work across API endpoints', async (t) => 
       Authorization: `Bearer ${signupData.token}`
     },
     body: JSON.stringify({
-      companyName: `Onboarded Co ${Date.now()}`,
+      companyName: uniqueCompany,
       sector: 'SaaS',
       summary: 'Growth-focused company onboarding with baseline metrics for ranking confidence.',
       sourceType: 'manual',
       metricsSharing: 'private',
-      verificationStatus: 'self-reported',
-      confidenceScore: 0.74,
       metrics: [
         { metricKey: 'growth_percent', metricValue: 17.5 },
         { metricKey: 'retention_percent', metricValue: 88.4 },
@@ -317,6 +315,40 @@ test('auth guards and protected writes work across API endpoints', async (t) => 
   assert.ok(onboardingData.company?.id);
   assert.equal(onboardingData.company.sector, 'SaaS');
   assert.ok(Array.isArray(onboardingData.metrics));
+  assert.ok(typeof onboardingData.completion?.percent === 'number');
+  assert.ok(Array.isArray(onboardingData.completion?.checklist));
+
+  const profilePatch = await fetch(`${baseUrl}/api/companies/${onboardingData.company.id}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${signupData.token}`
+    },
+    body: JSON.stringify({
+      sector: 'Fintech',
+      summary: 'Updated company summary for profile editing coverage and trust clarity.',
+      metricsSharing: 'accepted'
+    })
+  });
+  assert.equal(profilePatch.status, 200);
+  const patchedProfile = await getJson(profilePatch);
+  assert.equal(patchedProfile.company.sector, 'Fintech');
+  assert.equal(patchedProfile.company.metricsSharing, 'accepted');
+  assert.match(patchedProfile.company.summary, /Updated company summary/);
+  assert.ok(typeof patchedProfile.completion?.percent === 'number');
+
+  const forbiddenPatch = await fetch(`${baseUrl}/api/companies/alpha`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${signupData.token}`
+    },
+    body: JSON.stringify({
+      sector: 'Should Fail',
+      summary: 'This update should be rejected because the user does not own alpha.'
+    })
+  });
+  assert.equal(forbiddenPatch.status, 403);
 
   const metricIngest = await fetch(`${baseUrl}/api/companies/${rankedData[0].id}/metrics/quickbooks`, {
     method: 'POST',

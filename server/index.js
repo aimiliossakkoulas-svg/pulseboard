@@ -42,6 +42,7 @@ import {
   scheduleEngagementCall,
   setMilestonePaymentReference,
   toggleMetricsSharing,
+  updateCompanyProfile,
   updateEngagementMilestoneStatus,
   upsertEngagementOutcome
 } from './store.js';
@@ -224,6 +225,18 @@ async function requireAuth(req, res, next) {
   } catch (error) {
     return res.status(500).json({ error: 'Unable to validate session' });
   }
+}
+
+function canManageCompany(authUser, companyId) {
+  if (!authUser || !companyId) {
+    return false;
+  }
+
+  if (String(authUser.role || '') === 'Admin') {
+    return true;
+  }
+
+  return Boolean(authUser.companyId && String(authUser.companyId) === String(companyId));
 }
 
 const sendHealth = (req, res) => {
@@ -412,13 +425,15 @@ app.get('/api/companies/ranked', async (req, res) => {
 });
 
 app.post('/api/companies/onboarding', requireAuth, async (req, res) => {
-  const companyName = readTrimmedText(req.body?.companyName);
+  const claimedCompanyName = readTrimmedText(req.authUser?.companyName);
+  const requestedCompanyName = readTrimmedText(req.body?.companyName);
+  const companyName = claimedCompanyName || requestedCompanyName;
   const sector = readTrimmedText(req.body?.sector);
   const summary = readTrimmedText(req.body?.summary);
   const sourceType = readTrimmedText(req.body?.sourceType).toLowerCase() || 'manual';
   const metricsSharing = readTrimmedText(req.body?.metricsSharing).toLowerCase() || 'private';
-  const verificationStatus = readTrimmedText(req.body?.verificationStatus).toLowerCase() || 'self-reported';
-  const confidenceScore = toFiniteNumber(req.body?.confidenceScore);
+  const verificationStatus = 'self-reported';
+  const confidenceScore = 0.75;
   const metrics = normalizeMetricsPayload(req.body?.metrics);
   const capturedAt = readTrimmedText(req.body?.capturedAt) || new Date().toISOString();
 
@@ -438,19 +453,16 @@ app.post('/api/companies/onboarding', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'Source type is invalid' });
   }
 
-  if (!METRIC_VERIFICATION_STATUSES.has(verificationStatus)) {
-    return res.status(400).json({ error: 'Verification status is invalid' });
-  }
-
-  if (Number.isNaN(confidenceScore) || confidenceScore < 0 || confidenceScore > 1) {
-    return res.status(400).json({ error: 'Confidence score must be between 0 and 1' });
-  }
-
   if (!metrics.length) {
     return res.status(400).json({
       error: 'At least one valid metric is required',
       supportedMetricKeys: [...METRIC_ALLOWED_KEYS]
     });
+  }
+
+  const resolvedCompanyId = toCompanyId(companyName);
+  if (req.authUser?.companyId && String(req.authUser.companyId) !== String(resolvedCompanyId)) {
+    return res.status(403).json({ error: 'You can only onboard the company linked to your account' });
   }
 
   try {
@@ -480,6 +492,56 @@ app.post('/api/companies/onboarding', requireAuth, async (req, res) => {
   } catch (error) {
     const status = error.statusCode || 500;
     return res.status(status).json({ error: error.message || 'Failed to onboard company' });
+  }
+});
+
+app.patch('/api/companies/:companyId', requireAuth, async (req, res) => {
+  const { companyId } = req.params;
+  const sectorProvided = Object.prototype.hasOwnProperty.call(req.body || {}, 'sector');
+  const summaryProvided = Object.prototype.hasOwnProperty.call(req.body || {}, 'summary');
+  const sharingProvided = Object.prototype.hasOwnProperty.call(req.body || {}, 'metricsSharing');
+  const sector = sectorProvided ? readTrimmedText(req.body?.sector) : undefined;
+  const summary = summaryProvided ? readTrimmedText(req.body?.summary) : undefined;
+  const metricsSharing = sharingProvided
+    ? readTrimmedText(req.body?.metricsSharing).toLowerCase()
+    : undefined;
+
+  if (!COMPANY_ID_PATTERN.test(companyId)) {
+    return res.status(400).json({ error: 'Company id is invalid' });
+  }
+
+  if (!canManageCompany(req.authUser, companyId)) {
+    return res.status(403).json({ error: 'You do not have permission to edit this company profile' });
+  }
+
+  if (!sectorProvided && !summaryProvided && !sharingProvided) {
+    return res.status(400).json({ error: 'Provide sector, summary, and/or metricsSharing to update' });
+  }
+
+  if (sectorProvided && (!sector || sector.length > 100)) {
+    return res.status(400).json({ error: 'Sector is required and must be under 100 characters' });
+  }
+
+  if (summaryProvided && (!summary || summary.length < 20 || summary.length > 500)) {
+    return res.status(400).json({ error: 'Summary must be between 20 and 500 characters' });
+  }
+
+  if (sharingProvided && metricsSharing !== 'private' && metricsSharing !== 'accepted') {
+    return res.status(400).json({ error: 'metricsSharing must be private or accepted' });
+  }
+
+  try {
+    await updateCompanyProfile({
+      companyId,
+      sector,
+      summary,
+      metricsSharing
+    });
+    const profile = await getCompanyProfile(companyId);
+    return res.json(profile);
+  } catch (error) {
+    const status = error.statusCode || 500;
+    return res.status(status).json({ error: error.message || 'Failed to update company profile' });
   }
 });
 
