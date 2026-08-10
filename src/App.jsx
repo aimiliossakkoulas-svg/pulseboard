@@ -116,8 +116,11 @@ function App() {
 
   useEffect(() => {
     loadPosts();
-    loadNetworkData();
   }, []);
+
+  useEffect(() => {
+    loadNetworkData();
+  }, [token]);
 
   useEffect(() => {
     if (user) {
@@ -279,8 +282,9 @@ function App() {
 
   async function loadNetworkData() {
     try {
+      const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
       const [companiesRes, vendorsRes, meetingsRes, feedRes] = await Promise.all([
-        fetch(`${API_URL}/api/companies/ranked`),
+        fetch(`${API_URL}/api/companies/ranked`, { headers: authHeaders }),
         fetch(`${API_URL}/api/vendors`),
         fetch(`${API_URL}/api/meetings`),
         fetch(`${API_URL}/api/feed`)
@@ -352,7 +356,14 @@ function App() {
 
       setCompanies((current) =>
         current.map((company) =>
-          company.id === companyId ? updatedCompany : company
+          company.id === companyId
+            ? {
+                ...company,
+                ...updatedCompany,
+                rank: company.rank,
+                metricsVisible: updatedCompany.metricsVisible ?? true
+              }
+            : company
         )
       );
     } catch (error) {

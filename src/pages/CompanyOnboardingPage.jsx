@@ -138,11 +138,14 @@ function CompanyOnboardingPage({ user, handleLogout, apiUrl, token }) {
             </label>
 
             <label>
-              Sharing visibility
+              Metrics visibility
               <select value={form.metricsSharing} onChange={(event) => updateField('metricsSharing', event.target.value)}>
-                <option value="private">Private</option>
-                <option value="accepted">Shared</option>
+                <option value="private">Private — hide metrics from the network</option>
+                <option value="accepted">Shared with network — show growth, retention, pipeline</option>
               </select>
+              <span className="field-hint">
+                Private keeps numbers hidden from other members. Shared makes them visible and improves trust ranking.
+              </span>
             </label>
 
             <label>

@@ -430,7 +430,15 @@ function DashboardPage({
             <p className="search-empty">No companies match &ldquo;{search}&rdquo;</p>
           )}
           {filteredCompanies.map((company) => {
-            const canShare = company.metricsSharing === 'accepted';
+            const isShared = company.metricsSharing === 'accepted';
+            const metricsVisible = company.metricsVisible !== false;
+            const isOwnCompany = Boolean(
+              user
+              && (
+                String(user.role || '') === 'Admin'
+                || (user.companyId && String(user.companyId) === String(company.id))
+              )
+            );
             return (
               <article key={company.id} className="company-card social-card">
                 <div className="social-card-header">
@@ -447,15 +455,15 @@ function DashboardPage({
                 <p className="social-card-summary">{company.summary}</p>
                 <div className="social-card-metrics">
                   <div className="social-metric">
-                    <strong>{company.growth}</strong>
+                    <strong>{metricsVisible ? company.growth : 'Private'}</strong>
                     <span>Growth</span>
                   </div>
                   <div className="social-metric">
-                    <strong>{company.retention}</strong>
+                    <strong>{metricsVisible ? company.retention : 'Private'}</strong>
                     <span>Retention</span>
                   </div>
                   <div className="social-metric">
-                    <strong>{company.pipeline}</strong>
+                    <strong>{metricsVisible ? company.pipeline : 'Private'}</strong>
                     <span>Pipeline</span>
                   </div>
                   <div className="social-metric">
@@ -464,21 +472,33 @@ function DashboardPage({
                   </div>
                 </div>
                 <div className="social-card-footer">
-                  <span className={`sharing-pill ${canShare ? 'pill-success' : 'pill-neutral'}`}>
-                    {canShare ? '⬤ Metrics shared' : '⬤ Private'}
+                  <span className={`sharing-pill ${isShared ? 'pill-success' : 'pill-neutral'}`}>
+                    {isShared ? '⬤ Shared with network' : '⬤ Private metrics'}
                   </span>
                   <div className="social-card-actions">
-                    <button
-                      type="button"
-                      className="card-action-btn"
-                      onClick={() => handleToggleSharing(company.id)}
-                      disabled={sharingCompanyId === company.id}
-                    >
-                      {sharingCompanyId === company.id ? 'Updating...' : (canShare ? 'Restrict' : 'Share metrics')}
-                    </button>
+                    {isOwnCompany && (
+                      <button
+                        type="button"
+                        className="card-action-btn"
+                        onClick={() => handleToggleSharing(company.id)}
+                        disabled={sharingCompanyId === company.id}
+                        title={isShared
+                          ? 'Make growth, retention, and pipeline private to others'
+                          : 'Let the network see growth, retention, and pipeline'}
+                      >
+                        {sharingCompanyId === company.id ? 'Updating...' : (isShared ? 'Make private' : 'Share with network')}
+                      </button>
+                    )}
                     <Link to={`/company/${company.id}`} className="card-action-btn card-action-primary">View profile</Link>
                   </div>
                 </div>
+                {isOwnCompany && (
+                  <p className="privacy-note">
+                    {isShared
+                      ? 'Shared: the network can see your growth, retention, and pipeline. This also strengthens trust ranking.'
+                      : 'Private: others see “Private” instead of your metrics. Ranking still uses your data, with a modest trust impact.'}
+                  </p>
+                )}
               </article>
             );
           })}
