@@ -2812,6 +2812,21 @@ button:disabled,
   border-top: 1px solid rgba(255,255,255,0.07);
 }
 
+.privacy-note {
+  margin: 10px 0 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.field-hint {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
 .sharing-pill {
   font-size: 0.72rem;
   font-weight: 600;

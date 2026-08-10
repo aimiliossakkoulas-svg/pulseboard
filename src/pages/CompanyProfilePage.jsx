@@ -72,7 +72,9 @@ function CompanyProfilePage({ user, handleLogout, apiUrl, token }) {
       setError('');
 
       try {
-        const response = await fetch(`${apiUrl}/api/companies/${companyId}/profile`);
+        const response = await fetch(`${apiUrl}/api/companies/${companyId}/profile`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        });
         const data = await response.json();
 
         if (!response.ok) {
@@ -103,7 +105,7 @@ function CompanyProfilePage({ user, handleLogout, apiUrl, token }) {
     return () => {
       active = false;
     };
-  }, [apiUrl, companyId]);
+  }, [apiUrl, companyId, token]);
 
   async function handleProfileSave(event) {
     event.preventDefault();
@@ -239,7 +241,17 @@ function CompanyProfilePage({ user, handleLogout, apiUrl, token }) {
                 <div className="profile-badges">
                   <span className="pill">#{profile.company.rank.position} · {profile.company.rank.tier}</span>
                   <span className="pill">★ {profile.company.rating}</span>
+                  <span className={`pill ${profile.company.metricsSharing === 'accepted' ? 'pill-success' : 'pill-neutral'}`}>
+                    {profile.company.metricsSharing === 'accepted' ? 'Shared with network' : 'Private metrics'}
+                  </span>
                 </div>
+                <p className="privacy-note">
+                  {profile.company.metricsSharing === 'accepted'
+                    ? 'Growth, retention, and pipeline are visible to the network.'
+                    : profile.company.metricsVisible
+                      ? 'These metrics are private to others. You can see them because you manage this company.'
+                      : 'This company keeps growth, retention, and pipeline private.'}
+                </p>
                 <div className="stats-grid">
                   <div>
                     <strong>Sector</strong>

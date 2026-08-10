@@ -43,6 +43,9 @@ import {
   setMilestonePaymentReference,
   toggleMetricsSharing,
   updateCompanyProfile,
+  presentCompaniesForViewer,
+  presentCompanyForViewer,
+  canManageCompany,
   updateEngagementMilestoneStatus,
   upsertEngagementOutcome
 } from './store.js';
@@ -227,16 +230,24 @@ async function requireAuth(req, res, next) {
   }
 }
 
-function canManageCompany(authUser, companyId) {
-  if (!authUser || !companyId) {
-    return false;
-  }
+async function optionalAuth(req, res, next) {
+  try {
+    const token = getBearerToken(req);
+    if (!token) {
+      req.authUser = null;
+      req.authToken = '';
+      return next();
+    }
 
-  if (String(authUser.role || '') === 'Admin') {
-    return true;
+    const user = await getUserFromSession(token);
+    req.authUser = user || null;
+    req.authToken = user ? token : '';
+    return next();
+  } catch (error) {
+    req.authUser = null;
+    req.authToken = '';
+    return next();
   }
-
-  return Boolean(authUser.companyId && String(authUser.companyId) === String(companyId));
 }
 
 const sendHealth = (req, res) => {
@@ -406,19 +417,19 @@ app.post('/api/posts', requireAuth, async (req, res) => {
   }
 });
 
-app.get('/api/companies', async (req, res) => {
+app.get('/api/companies', optionalAuth, async (req, res) => {
   try {
     const companies = await getCompanies();
-    res.json(companies);
+    res.json(presentCompaniesForViewer(companies, req.authUser));
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch companies' });
   }
 });
 
-app.get('/api/companies/ranked', async (req, res) => {
+app.get('/api/companies/ranked', optionalAuth, async (req, res) => {
   try {
     const companies = await getRankedCompanies();
-    res.json(companies);
+    res.json(presentCompaniesForViewer(companies, req.authUser));
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch ranked companies' });
   }
@@ -451,6 +462,10 @@ app.post('/api/companies/onboarding', requireAuth, async (req, res) => {
 
   if (!METRIC_SOURCE_TYPES.has(sourceType)) {
     return res.status(400).json({ error: 'Source type is invalid' });
+  }
+
+  if (metricsSharing !== 'private' && metricsSharing !== 'accepted') {
+    return res.status(400).json({ error: 'metricsSharing must be private or accepted' });
   }
 
   if (!metrics.length) {
@@ -487,7 +502,7 @@ app.post('/api/companies/onboarding', requireAuth, async (req, res) => {
       capturedAt
     });
 
-    const profile = await getCompanyProfile(company.id);
+    const profile = await getCompanyProfile(company.id, req.authUser);
     return res.status(201).json(profile);
   } catch (error) {
     const status = error.statusCode || 500;
@@ -570,7 +585,7 @@ app.get('/api/vendors/recommended/:companyId', async (req, res) => {
   }
 });
 
-app.get('/api/companies/:companyId/profile', async (req, res) => {
+app.get('/api/companies/:companyId/profile', optionalAuth, async (req, res) => {
   const { companyId } = req.params;
 
   if (!COMPANY_ID_PATTERN.test(companyId)) {
@@ -578,7 +593,7 @@ app.get('/api/companies/:companyId/profile', async (req, res) => {
   }
 
   try {
-    const profile = await getCompanyProfile(companyId);
+    const profile = await getCompanyProfile(companyId, req.authUser);
     res.json(profile);
   } catch (error) {
     const status = error.statusCode || 500;
@@ -586,7 +601,7 @@ app.get('/api/companies/:companyId/profile', async (req, res) => {
   }
 });
 
-app.get('/api/companies/:companyId/metrics', async (req, res) => {
+app.get('/api/companies/:companyId/metrics', optionalAuth, async (req, res) => {
   const { companyId } = req.params;
 
   if (!COMPANY_ID_PATTERN.test(companyId)) {
@@ -594,6 +609,17 @@ app.get('/api/companies/:companyId/metrics', async (req, res) => {
   }
 
   try {
+    const companies = await getCompanies();
+    const company = companies.find((entry) => entry.id === companyId);
+    if (!company) {
+      return res.status(404).json({ error: 'Company not found' });
+    }
+
+    const presented = presentCompanyForViewer(company, req.authUser);
+    if (!presented.metricsVisible) {
+      return res.json([]);
+    }
+
     const metrics = await getCompanyMetrics(companyId);
     return res.json(metrics);
   } catch (error) {
@@ -675,9 +701,13 @@ app.post('/api/companies/:companyId/share', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'Company id is invalid' });
   }
 
+  if (!canManageCompany(req.authUser, companyId)) {
+    return res.status(403).json({ error: 'You do not have permission to change sharing for this company' });
+  }
+
   try {
     const company = await toggleMetricsSharing(companyId);
-    res.json(company);
+    res.json(presentCompanyForViewer(company, req.authUser));
   } catch (error) {
     res.status(404).json({ error: error.message || 'Company not found' });
   }

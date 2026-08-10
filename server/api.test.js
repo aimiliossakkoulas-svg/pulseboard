@@ -259,15 +259,13 @@ test('auth guards and protected writes work across API endpoints', async (t) => 
   const postData = await getJson(createdPost);
   assert.equal(postData.author, 'API Tester');
 
-  const toggleShare = await fetch(`${baseUrl}/api/companies/alpha/share`, {
+  const forbiddenShare = await fetch(`${baseUrl}/api/companies/alpha/share`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${signupData.token}`
     }
   });
-  assert.equal(toggleShare.status, 200);
-  const companyData = await getJson(toggleShare);
-  assert.ok(['accepted', 'private'].includes(companyData.metricsSharing));
+  assert.equal(forbiddenShare.status, 403);
 
   const rankedCompanies = await fetch(`${baseUrl}/api/companies/ranked`);
   assert.equal(rankedCompanies.status, 200);
@@ -275,6 +273,20 @@ test('auth guards and protected writes work across API endpoints', async (t) => 
   assert.ok(Array.isArray(rankedData));
   assert.ok(rankedData.length > 0);
   assert.ok(typeof rankedData[0].rank?.score === 'number');
+
+  const privateSeed = rankedData.find((entry) => entry.id === 'pulse');
+  assert.ok(privateSeed);
+  assert.equal(privateSeed.metricsSharing, 'private');
+  assert.equal(privateSeed.metricsVisible, false);
+  assert.equal(privateSeed.growth, 'Private');
+  assert.equal(privateSeed.retention, 'Private');
+  assert.equal(privateSeed.pipeline, 'Private');
+
+  const sharedSeed = rankedData.find((entry) => entry.id === 'nova');
+  assert.ok(sharedSeed);
+  assert.equal(sharedSeed.metricsSharing, 'accepted');
+  assert.equal(sharedSeed.metricsVisible, true);
+  assert.notEqual(sharedSeed.growth, 'Private');
 
   const recommendedVendors = await fetch(`${baseUrl}/api/vendors/recommended/${rankedData[0].id}`);
   assert.equal(recommendedVendors.status, 200);
@@ -317,6 +329,44 @@ test('auth guards and protected writes work across API endpoints', async (t) => 
   assert.ok(Array.isArray(onboardingData.metrics));
   assert.ok(typeof onboardingData.completion?.percent === 'number');
   assert.ok(Array.isArray(onboardingData.completion?.checklist));
+  assert.equal(onboardingData.company.metricsVisible, true);
+  assert.notEqual(onboardingData.company.growth, 'Private');
+
+  const publicRanked = await fetch(`${baseUrl}/api/companies/ranked`);
+  assert.equal(publicRanked.status, 200);
+  const publicRankedData = await getJson(publicRanked);
+  const publicMine = publicRankedData.find((entry) => entry.id === onboardingData.company.id);
+  assert.ok(publicMine);
+  assert.equal(publicMine.metricsVisible, false);
+  assert.equal(publicMine.growth, 'Private');
+
+  const ownerRanked = await fetch(`${baseUrl}/api/companies/ranked`, {
+    headers: { Authorization: `Bearer ${signupData.token}` }
+  });
+  assert.equal(ownerRanked.status, 200);
+  const ownerRankedData = await getJson(ownerRanked);
+  const ownerMine = ownerRankedData.find((entry) => entry.id === onboardingData.company.id);
+  assert.ok(ownerMine);
+  assert.equal(ownerMine.metricsVisible, true);
+  assert.notEqual(ownerMine.growth, 'Private');
+
+  const toggleShare = await fetch(`${baseUrl}/api/companies/${onboardingData.company.id}/share`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${signupData.token}`
+    }
+  });
+  assert.equal(toggleShare.status, 200);
+  const companyData = await getJson(toggleShare);
+  assert.equal(companyData.metricsSharing, 'accepted');
+  assert.equal(companyData.metricsVisible, true);
+
+  const sharedPublicRanked = await fetch(`${baseUrl}/api/companies/ranked`);
+  const sharedPublicData = await getJson(sharedPublicRanked);
+  const sharedMine = sharedPublicData.find((entry) => entry.id === onboardingData.company.id);
+  assert.ok(sharedMine);
+  assert.equal(sharedMine.metricsVisible, true);
+  assert.notEqual(sharedMine.growth, 'Private');
 
   const profilePatch = await fetch(`${baseUrl}/api/companies/${onboardingData.company.id}`, {
     method: 'PATCH',
@@ -371,9 +421,13 @@ test('auth guards and protected writes work across API endpoints', async (t) => 
   assert.equal(metricIngestData.sourceType, 'quickbooks');
   assert.equal(metricIngestData.verificationStatus, 'verified');
 
-  const companyMetrics = await fetch(`${baseUrl}/api/companies/${rankedData[0].id}/metrics`);
+  const companyMetrics = await fetch(`${baseUrl}/api/companies/nova/metrics`);
   assert.equal(companyMetrics.status, 200);
   const companyMetricsData = await getJson(companyMetrics);
   assert.ok(Array.isArray(companyMetricsData));
-  assert.ok(companyMetricsData.some((entry) => entry.sourceType === 'quickbooks'));
+
+  const privateMetrics = await fetch(`${baseUrl}/api/companies/pulse/metrics`);
+  assert.equal(privateMetrics.status, 200);
+  const privateMetricsData = await getJson(privateMetrics);
+  assert.deepEqual(privateMetricsData, []);
 });

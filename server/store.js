@@ -1275,6 +1275,60 @@ export async function ingestCompanyMetrics({ companyId, sourceType, verification
   };
 }
 
+export function canManageCompany(authUser, companyId) {
+  if (!authUser || !companyId) {
+    return false;
+  }
+
+  if (String(authUser.role || '') === 'Admin') {
+    return true;
+  }
+
+  return Boolean(authUser.companyId && String(authUser.companyId) === String(companyId));
+}
+
+export function presentCompanyForViewer(company, viewer = null) {
+  if (!company) {
+    return company;
+  }
+
+  const metricsVisible = company.metricsSharing === 'accepted' || canManageCompany(viewer, company.id);
+  if (metricsVisible) {
+    return {
+      ...company,
+      metricsVisible: true
+    };
+  }
+
+  return {
+    ...company,
+    metricsVisible: false,
+    growth: 'Private',
+    retention: 'Private',
+    pipeline: 'Private',
+    hubspotMetrics: {
+      ...(company.hubspotMetrics || {}),
+      deals: 'Private',
+      campaigns: 'Private',
+      meetings: 'Private',
+      portal: undefined,
+      owner: undefined,
+      connectedAt: undefined
+    },
+    metricsMeta: company.metricsMeta
+      ? {
+          ...company.metricsMeta,
+          latestCapturedAt: null,
+          sourceTypes: []
+        }
+      : company.metricsMeta
+  };
+}
+
+export function presentCompaniesForViewer(companies, viewer = null) {
+  return (companies || []).map((company) => presentCompanyForViewer(company, viewer));
+}
+
 export async function getRankedCompanies() {
   const companyList = await getCompanies();
   const rankedWithMetrics = await Promise.all(
@@ -1334,7 +1388,7 @@ export async function getRecommendedVendors(companyId) {
     .sort((a, b) => b.match.score - a.match.score);
 }
 
-export async function getCompanyProfile(companyId) {
+export async function getCompanyProfile(companyId, viewer = null) {
   const rankedCompanies = await getRankedCompanies();
   const company = rankedCompanies.find((entry) => entry.id === companyId);
 
@@ -1350,12 +1404,15 @@ export async function getCompanyProfile(companyId) {
     getCompanyMetrics(companyId)
   ]);
 
+  const presented = presentCompanyForViewer(company, viewer);
+  const metricsVisible = presented.metricsVisible !== false;
+
   return {
-    company,
-    completion: buildProfileCompletion(company),
+    company: presented,
+    completion: buildProfileCompletion(presented),
     recommendedVendors,
     meetings: companyMeetings.filter((meeting) => meeting.companyId === companyId),
-    metrics
+    metrics: metricsVisible ? metrics : []
   };
 }
 
