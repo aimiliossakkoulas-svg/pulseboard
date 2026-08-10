@@ -7,15 +7,25 @@ export const heroStats = [
 export const adviceRequests = [
   {
     id: 'advice-1',
-    title: 'Need help with retention strategy',
+    authorUserId: '',
+    authorName: 'Mina Chen',
     author: 'Mina Chen',
-    detail: 'Looking for a founder who has scaled paid onboarding journeys.'
+    title: 'Need help with retention strategy',
+    detail: 'Looking for a founder who has scaled paid onboarding journeys.',
+    status: 'open',
+    offers: [],
+    offerCount: 0
   },
   {
     id: 'advice-2',
-    title: 'Open to reviewing vendor stack',
+    authorUserId: '',
+    authorName: 'Jordan Rivera',
     author: 'Jordan Rivera',
-    detail: 'Happy to share notes on CRM and analytics tooling with trusted peers.'
+    title: 'Open to reviewing vendor stack',
+    detail: 'Happy to share notes on CRM and analytics tooling with trusted peers.',
+    status: 'open',
+    offers: [],
+    offerCount: 0
   }
 ];
 
