@@ -212,7 +212,7 @@ function AuthPage({ mode, authForm, setAuthForm, authMessage, handleAuthSubmit, 
                     <span className="auth-field-label">LinkedIn company URL (optional)</span>
                     <input
                       type="url"
-                      placeholder="https://www.linkedin.com/company/your-company"
+                      placeholder="linkedin.com/company/..."
                       value={authForm.linkedinCompanyUrl}
                       onChange={(e) => setAuthForm({ ...authForm, linkedinCompanyUrl: e.target.value })}
                     />

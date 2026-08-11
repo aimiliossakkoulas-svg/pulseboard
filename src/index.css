@@ -1423,13 +1423,14 @@ select {
 }
 
 .auth-company-fieldset {
-  margin: 2px 0 0;
-  padding: var(--space-sm);
-  border: 1px solid var(--border-subtle);
+  margin: 4px 0 0;
+  padding: var(--space-sm) var(--space-sm) var(--space-md);
+  border: 1px solid rgba(87, 217, 255, 0.18);
   border-radius: var(--radius-md);
   display: grid;
   gap: var(--space-sm);
-  background: rgba(255, 255, 255, 0.02);
+  background:
+    linear-gradient(160deg, rgba(87, 217, 255, 0.05), rgba(255, 255, 255, 0.02));
 }
 
 .auth-company-legend {
