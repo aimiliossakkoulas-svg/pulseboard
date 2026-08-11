@@ -13,12 +13,13 @@ Use this checklist before shipping auth or landing changes.
 
 ## Tab Order (Auth)
 
-1. Email input
+1. Email input (auto-focused on mount / mode change)
 2. Password input
-3. Name / role fields (signup only)
-4. Submit button
-5. "Create new account" or "Log in" link
-6. "Back to landing" link
+3. Password Show/Hide toggle
+4. Name / role / company fields (signup only)
+5. Submit button
+6. "Create new account" or "Log in" link
+7. "Back to landing" link
 
 ## Tab Order (Landing)
 
@@ -83,9 +84,12 @@ Use this checklist before shipping auth or landing changes.
 ## Trust & Graphics
 
 - [ ] Hero network graph renders with 5 nodes + center
-- [ ] Auth side graphic renders 4 nodes with connection lines
+- [ ] Auth side graphic renders 4 nodes with connection lines + pulse
+- [ ] Auth activity strip shows sample network updates under the graphic
 - [ ] Trust block visible below hero CTAs
 - [ ] Decorative graphics marked `aria-hidden="true"`
+- [ ] Field labels are visually hidden but available to screen readers
+- [ ] Password Show/Hide toggle updates `aria-pressed` and input type
 
 ## Cross-Browser Smoke Test
 
