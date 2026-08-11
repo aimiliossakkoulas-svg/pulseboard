@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://pulseboard.example.com/sitemap.xml
+Sitemap: https://companyboard.example.com/sitemap.xml

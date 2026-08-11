@@ -6,16 +6,15 @@ function LandingHero({ heroStats, onSignupClick, onSigninClick }) {
     <header className="hero landing-hero">
       <div className="landing-hero-layout">
         <div className="landing-hero-inner">
-          <p className="eyebrow">PulseBoard &mdash; Private business network</p>
+          <p className="eyebrow">CompanyBoard &mdash; Private business network</p>
           <h1 className="landing-h1">
-            Reputation is the new
+            Turn visibility into
             <br />
-            <span className="landing-h1-accent">unfair advantage.</span>
+            <span className="landing-h1-accent">real collaboration.</span>
           </h1>
           <p className="landing-subhead">
-            PulseBoard is where high-signal founders, operators, and partners build verified credibility,
-            share performance selectively, and discover the right people at the right moment.
-            No noise. No vanity metrics. Just trust.
+            Discover credible companies, connect with the right people, and build partnerships grounded in trust,
+            fit, and shared value. CompanyBoard helps serious operators find the right collaborators without the noise.
           </p>
           <div className="hero-actions landing-cta-row">
             <button type="button" className="cta-primary" onClick={onSignupClick}>Join the network</button>
@@ -25,13 +24,13 @@ function LandingHero({ heroStats, onSignupClick, onSigninClick }) {
           <div className="landing-trust-block" aria-label="Trust signals">
             <div className="landing-trust-icon" aria-hidden="true">&#9670;</div>
             <div className="landing-trust-copy">
-              <strong>Verified operator network</strong>
-              <span>Profiles ranked on real metrics — not follower counts. Private by default until you choose to share.</span>
+              <strong>Credible partner network</strong>
+              <span>Profiles ranked on real signal, trusted context, and fit — not follower counts or empty noise.</span>
             </div>
           </div>
         </div>
 
-        <aside className="landing-hero-graphic" aria-label="PulseBoard network graph preview">
+        <aside className="landing-hero-graphic" aria-label="CompanyBoard network graph preview">
           <div className="graph-ring graph-ring-large"></div>
           <div className="graph-ring graph-ring-medium"></div>
           <div className="graph-ring graph-ring-small"></div>

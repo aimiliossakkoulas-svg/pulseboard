@@ -1,16 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="PulseBoard">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="CompanyBoard">
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0b1b33" />
-      <stop offset="100%" stop-color="#163960" />
+      <stop offset="0%" stop-color="#091225" />
+      <stop offset="100%" stop-color="#0f2749" />
     </linearGradient>
     <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#53d8ff" />
-      <stop offset="100%" stop-color="#7ef0c1" />
+      <stop offset="0%" stop-color="#1ad7ff" />
+      <stop offset="100%" stop-color="#33f0ba" />
     </linearGradient>
   </defs>
-  <rect width="128" height="128" rx="26" fill="url(#bg)" />
-  <path d="M28 90V38h19c16 0 26 10 26 25S63 90 47 90H28zm13-11h6c8 0 13-6 13-16s-5-14-13-14h-6v30z" fill="url(#accent)" />
-  <circle cx="92" cy="38" r="10" fill="#53d8ff" opacity="0.85" />
-  <circle cx="96" cy="78" r="14" fill="#7ef0c1" opacity="0.75" />
+  <rect x="5" y="5" width="118" height="118" rx="27" fill="url(#bg)" />
+  <rect x="5" y="5" width="118" height="118" rx="27" fill="none" stroke="#2b3f64" stroke-width="0.5" />
+  <path d="M37 64c0-16.5 12.3-29 30-29 9.5 0 16.8 2.8 22.3 7.5l-7.5 8.5c-4-3.2-8.5-5-14.5-5-10.8 0-18.3 7.8-18.3 18s7.5 18 18.3 18c6.3 0 11.5-2 15.5-5.5l7 8.8c-6.3 5.5-14 8-23.5 8-17.8 0-29.3-12.5-29.3-29.3z" fill="url(#accent)" />
+  <circle cx="89.5" cy="42.5" r="4.5" fill="#1ad7ff" opacity="0.92" />
+  <circle cx="92" cy="83.5" r="5.5" fill="#33f0ba" opacity="0.78" />
 </svg>

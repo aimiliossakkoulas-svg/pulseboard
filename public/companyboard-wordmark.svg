@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="220" viewBox="0 0 960 220" role="img" aria-label="CompanyBoard wordmark">
+  <defs>
+    <linearGradient id="iconbg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#091225" />
+      <stop offset="100%" stop-color="#113158" />
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1ad7ff" />
+      <stop offset="100%" stop-color="#33f0ba" />
+    </linearGradient>
+  </defs>
+
+  <rect x="16" y="44" width="132" height="132" rx="34" fill="url(#iconbg)" />
+  <rect x="16" y="44" width="132" height="132" rx="34" fill="none" stroke="#2b426a" stroke-width="2" />
+
+  <path d="M52 109c0-24 18-43 44-43 14 0 24 4 33 11l-12 13c-6-5-13-8-22-8-16 0-27 12-27 27s11 27 27 27c9 0 17-3 23-8l11 14c-9 8-21 12-35 12-26 0-42-19-42-45z" fill="url(#accent)" />
+  <circle cx="126" cy="88" r="8" fill="#1ad7ff" opacity="0.9" />
+
+  <text x="182" y="126" fill="#eaf2ff" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="78" font-weight="700" letter-spacing="0.2">CompanyBoard</text>
+  <text x="186" y="164" fill="#8ca2bc" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="24" letter-spacing="2.3">TRUSTED OPERATING NETWORK</text>
+</svg>

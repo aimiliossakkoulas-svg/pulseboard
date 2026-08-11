@@ -1,6 +1,6 @@
 {
-  "name": "PulseBoard",
-  "short_name": "PulseBoard",
+  "name": "CompanyBoard",
+  "short_name": "CompanyBoard",
   "description": "Trusted company network with selective metrics sharing and premium partner discovery.",
   "start_url": "/",
   "display": "standalone",

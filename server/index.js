@@ -44,6 +44,8 @@ import {
   toggleMetricsSharing,
   updateCompanyProfile,
   updateEngagementMilestoneStatus,
+  upsertConsultationOutcome,
+  upsertEngagementConsultationOutcome,
   upsertEngagementOutcome
 } from './store.js';
 
@@ -602,6 +604,42 @@ app.get('/api/companies/:companyId/metrics', async (req, res) => {
   }
 });
 
+app.post('/api/companies/:companyId/consultation-outcome', requireAuth, async (req, res) => {
+  const { companyId } = req.params;
+  const summary = readTrimmedText(req.body?.summary);
+  const outcomeType = readTrimmedText(req.body?.outcomeType);
+  const nextActionTitle = readTrimmedText(req.body?.nextActionTitle);
+  const nextActionOwner = readTrimmedText(req.body?.nextActionOwner);
+  const nextActionDueDate = readTrimmedText(req.body?.nextActionDueDate);
+
+  if (!COMPANY_ID_PATTERN.test(companyId)) {
+    return res.status(400).json({ error: 'Company id is invalid' });
+  }
+
+  if (!canManageCompany(req.authUser, companyId)) {
+    return res.status(403).json({ error: 'You do not have permission to edit this company profile' });
+  }
+
+  if (!summary) {
+    return res.status(400).json({ error: 'Summary is required' });
+  }
+
+  try {
+    const outcome = await upsertConsultationOutcome({
+      companyId,
+      summary,
+      outcomeType,
+      nextActionTitle,
+      nextActionOwner,
+      nextActionDueDate
+    });
+    return res.status(201).json({ companyId, outcome, actions: outcome.actions });
+  } catch (error) {
+    const status = error.statusCode || 500;
+    return res.status(status).json({ error: error.message || 'Failed to save consultation outcome' });
+  }
+});
+
 app.post('/api/companies/:companyId/metrics/:sourceType', requireAuth, async (req, res) => {
   const { companyId, sourceType } = req.params;
   const normalizedSource = readTrimmedText(sourceType).toLowerCase();
@@ -1041,6 +1079,29 @@ app.get('/api/engagements/:engagementId/payments', requireAuth, async (req, res)
   } catch (error) {
     const code = error.statusCode || 500;
     return res.status(code).json({ error: error.message || 'Failed to fetch payments' });
+  }
+});
+
+app.post('/api/engagements/:engagementId/consultation-outcome', requireAuth, async (req, res) => {
+  const engagementId = parseInt(req.params.engagementId, 10);
+  if (!Number.isFinite(engagementId)) {
+    return res.status(400).json({ error: 'Invalid engagement id' });
+  }
+
+  try {
+    const outcome = await upsertEngagementConsultationOutcome({
+      authUser: req.authUser,
+      engagementId,
+      summary: readTrimmedText(req.body?.summary),
+      outcomeType: readTrimmedText(req.body?.outcomeType),
+      nextActionTitle: readTrimmedText(req.body?.nextActionTitle),
+      nextActionOwner: readTrimmedText(req.body?.nextActionOwner),
+      nextActionDueDate: readTrimmedText(req.body?.nextActionDueDate),
+    });
+    return res.status(201).json(outcome);
+  } catch (error) {
+    const code = error.statusCode || 500;
+    return res.status(code).json({ error: error.message || 'Failed to save consultation outcome' });
   }
 });
 

@@ -1,7 +1,9 @@
 # Social Media Starter
 
 This project now includes a React + Vite frontend and a Node.js + Express backend that connects to PostgreSQL.
-It is a PulseBoard-inspired social platform for ranked company profiles, selective metric sharing, HubSpot metrics, meetings, and marketplace vendors.
+It is a CompanyBoard-inspired social platform for ranked company profiles, selective metric sharing, HubSpot metrics, meetings, marketplace vendors, and structured collaboration workflows.
+
+CompanyBoard's positioning is rooted in niche-market collaboration: companies can surface credible operating context, identify complementary partners, and pursue partnerships where both sides gain value through a defined scope rather than generic networking or charity-style consulting.
 
 ## Features
 - Feed UI for creating and viewing posts

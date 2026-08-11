@@ -1,11 +1,13 @@
-# PulseBoard Product Roadmap
+# CompanyBoard Product Roadmap
 
 ## Vision
-PulseBoard is building the trusted operating system for private company reputation, performance visibility, and partner discovery.
+CompanyBoard is building the trusted operating system for private company reputation, performance visibility, and partner discovery.
 
 Today, founders and operators manage critical relationships across fragmented tools, warm intros, private spreadsheets, Slack groups, agencies, CRMs, and disconnected communities. The result is that the highest-quality companies, advisors, and vendors are often hard to identify, hard to trust, and hard to match at the right time. Valuable business context exists, but it is trapped in closed workflows or overshared in places that were never designed for selective, trust-based collaboration.
 
-PulseBoard's thesis is that the next valuable business network will not be built on public social noise. It will be built on verified signal, selective sharing, and explainable trust. Companies should be able to present performance, maturity, and momentum in a structured way without exposing every sensitive metric publicly. Advisors and partners should be able to discover the right companies and the right moments to engage based on real operating context, not vanity branding.
+CompanyBoard's thesis is that the next valuable business network will not be built on public social noise. It will be built on verified signal, selective sharing, and explainable trust. Companies should be able to present performance, maturity, and momentum in a structured way without exposing every sensitive metric publicly. Advisors and partners should be able to discover the right companies and the right moments to engage based on real operating context, not vanity branding.
+
+A core part of the product story is niche-market collaboration: the platform should help companies surface credible operating context and connect with complementary partners in a way that supports focused, high-value partnerships. In construction, that might mean collaboration with software providers, suppliers, advisors, or adjacent operators. In other sectors, it could look very different. The principle is the same: help companies find partners where the relationship is structured around mutual value, a clear scope, and a practical outcome.
 
 The product combines four layers into one platform:
 - A trusted company identity and profile layer
@@ -17,10 +19,10 @@ Over time, this creates more than a directory or social feed. It becomes a syste
 
 At seed scale, the wedge is a premium private network for founders, operators, and growth partners. At platform scale, the opportunity is to become the infrastructure for how trusted business communities evaluate performance, share selectively, collaborate intelligently, and transact with confidence.
 
-If executed well, PulseBoard can sit at the intersection of professional identity, operating data, private reputation, and partner commerce, turning fragmented relationship-driven workflows into a structured and defensible network product.
+If executed well, CompanyBoard can sit at the intersection of professional identity, operating data, private reputation, and partner commerce, turning fragmented relationship-driven workflows into a structured and defensible network product.
 
 ## Why Now
-Several market shifts make this the right moment for a platform like PulseBoard.
+Several market shifts make this the right moment for a platform like CompanyBoard.
 
 - Private communities and curated business networks have become meaningful channels for deal flow, operator knowledge, and vendor discovery, but most still run on lightweight tools that do not support structured trust or selective data sharing.
 - Founders and operators increasingly expect software to help them manage reputation, workflows, and partner decisions in one place rather than across disconnected spreadsheets, CRMs, Slack groups, and manual introductions.
@@ -30,7 +32,7 @@ Several market shifts make this the right moment for a platform like PulseBoard.
 In short, the infrastructure for private business networks has not caught up with how modern founders, operators, and partners actually discover, evaluate, and work with each other.
 
 ## Business Model
-PulseBoard can monetize through a multi-sided model that expands as the network deepens.
+CompanyBoard can monetize through a multi-sided model that expands as the network deepens.
 
 - Company subscriptions: free tier for profile creation and basic participation, with paid tiers for enhanced visibility, advanced analytics, richer benchmarking, and collaboration tools.
 - Vendor and partner access: paid placement, premium partner profiles, sponsored discovery, and qualified introduction workflows for high-fit service providers.
@@ -40,7 +42,7 @@ PulseBoard can monetize through a multi-sided model that expands as the network 
 This creates a model where revenue is tied to trust, workflow depth, and marketplace liquidity rather than pure advertising or low-quality traffic volume.
 
 ## Go-To-Market
-PulseBoard should enter through a narrow, high-context wedge rather than a broad social launch.
+CompanyBoard should enter through a narrow, high-context wedge rather than a broad social launch.
 
 - First users: founder communities, operator circles, accelerators, investor portfolios, and curated B2B networks where trust and introductions already matter.
 - Initial buyer or sponsor: community operators, fund platforms, or network leaders who want stronger visibility, better member engagement, and higher-quality partner discovery.
@@ -50,12 +52,12 @@ PulseBoard should enter through a narrow, high-context wedge rather than a broad
 The go-to-market motion should start with a few curated networks, prove engagement and trusted partner discovery inside those environments, and then expand through community-led distribution, portfolio rollouts, and partner referrals.
 
 ## Moat / Defensibility
-PulseBoard's defensibility comes from structured trust data, workflow depth, and network-specific reputation rather than from a simple directory or feed.
+CompanyBoard's defensibility comes from structured trust data, workflow depth, and network-specific reputation rather than from a simple directory or feed.
 
 - Reputation graph: over time the platform accumulates unique trust signals across company quality, selective metric sharing, reviews, collaboration history, and partner outcomes.
 - Embedded workflow: once onboarding, benchmarking, recommendations, and partner collaboration live in one system, the product becomes harder to replace with disconnected tools.
 - Network density: private communities become more valuable as the system captures more verified companies, trusted experts, and high-performing vendors within each network.
-- Explainable intelligence: recommendation quality improves as PulseBoard learns from structured profile, activity, and outcome data while keeping decision logic legible to users.
+- Explainable intelligence: recommendation quality improves as CompanyBoard learns from structured profile, activity, and outcome data while keeping decision logic legible to users.
 - Multi-sided liquidity: defensibility grows as companies, advisors, and vendors each get better results from the presence of the others, creating a compounding marketplace effect.
 
 The long-term moat is not just software. It is the combination of trusted identity, permissioned operating data, workflow history, and network-specific reputation that competitors cannot quickly replicate.
@@ -129,10 +131,12 @@ Deliverables:
 - Add basic moderation and visibility controls for posts and sessions
 - Add content privacy actions such as hide, block, or restricted visibility where appropriate
 - Add a metrics dashboard with trend lines and next-best-action recommendations
+- Add collaboration intent prompts so users can describe the kind of partnership they want, such as a niche-market pilot, advisory engagement, software integration, or adjacent operator relationship
 
 Success criteria:
 - Users can participate in useful conversations and sessions
 - The network becomes active rather than passive
+- Users can articulate collaboration intent in a way that supports higher-quality partner discovery
 
 ### Phase 4: Marketplace Intelligence and Partner Matching (10-14 weeks)
 Focus: make vendor discovery and partner recommendations more practical and outcome-driven.
@@ -144,10 +148,13 @@ Deliverables:
 - Add a vendor collaboration workspace with tasks, comments, ownership, and deadlines
 - Support intro and deal tracking for premium partner matches
 - Add filtering and search for marketplace discovery
+- Add partnership framing templates for niche collaborations, including collaboration intent, scope, and value exchange
+- Add support for complementary-partner discovery such as software firms, advisors, suppliers, and adjacent operators
 
 Success criteria:
 - Vendor recommendations feel relevant and useful
 - Users can move from profile review to partner action with less friction
+- The platform supports structured, mutual-value partnerships rather than generic networking alone
 
 ### Phase 5: Monetization and Growth Operations (3-6 months)
 Focus: turn the product into a sustainable service with clearer value tiers.
@@ -240,4 +247,47 @@ Success criteria:
 1. Finish onboarding and profile editing
 2. Make metrics-sharing controls explicit and easier to understand
 3. Add one polished network interaction such as meetings or advisory requests
-4. Prepare the product for a small pilot group
+4. Introduce a lightweight collaboration-intent workflow for niche partnerships and partner discovery
+5. Prepare the product for a small pilot group
+
+## Design Sprint: CompanyBoard UI v1 (3 days)
+
+### Day 1: Design Lock
+1. Finalize one hero direction in Figma.
+2. Finalize landing section order: hero, proof, value pillars, preview, CTA.
+3. Define design tokens once: colors, typography scale, spacing, radius, and shadows.
+4. Build reusable components: primary button, secondary button, section header, card, and stat pill.
+5. Freeze copy for hero and top landing sections.
+
+Done criteria:
+- One clean desktop landing frame is approved.
+- One clean mobile landing frame is approved.
+- No conflicting visual styles remain.
+
+### Day 2: Code Translation
+1. Normalize CSS variables to match the design tokens.
+2. Update hero styling first.
+3. Update landing sections second.
+4. Apply the same token system to the dashboard top shell.
+5. Keep page structure stable while replacing the visual layer.
+
+Done criteria:
+- Landing and dashboard feel like one consistent brand.
+- Typography, spacing, buttons, and cards follow the same token system.
+
+### Day 3: Polish and Consistency
+1. Align auth and marketplace surfaces with the same token set.
+2. Run responsive QA for core breakpoints.
+3. Resolve visual mismatches in spacing, card height, and typography rhythm.
+4. Validate social assets and metadata consistency.
+5. Run final build and a full click-through pass.
+
+Done criteria:
+- Desktop and mobile both feel intentional and coherent.
+- No legacy visual style leaks into primary screens.
+- The product is demo-ready.
+
+### Daily Timebox
+1. 90 minutes focused implementation.
+2. 20 minutes visual QA.
+3. 10 minutes notes for next-day adjustments.

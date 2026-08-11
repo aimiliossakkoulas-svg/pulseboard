@@ -100,7 +100,7 @@ function CompanyOnboardingPage({ user, handleLogout, apiUrl, token }) {
           <p>Start with self-reported or QuickBooks-sourced values. You can update these anytime and add other sources later.</p>
           <div className="hero-actions">
             <Link to="/app" className="action-link">Back to dashboard</Link>
-            <Link to="/marketplace" className="action-link secondary-action">View marketplace</Link>
+            <Link to="/marketplace" className="action-link secondary-action">Explore partnerships</Link>
           </div>
         </div>
         <div className="hero-side-card">

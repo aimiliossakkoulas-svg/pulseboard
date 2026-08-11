@@ -17,6 +17,8 @@ const fallbackEngagementMessages = [];
 const fallbackMilestones = [];
 const fallbackCalls = [];
 const fallbackOutcomes = [];
+const fallbackConsultationOutcomes = [];
+const fallbackEngagementConsultationOutcomes = [];
 const fallbackNotifications = [];
 const fallbackPaymentEvents = [];
 const fallbackProcessedWebhooks = [];
@@ -154,6 +156,9 @@ function loadPersistedFallbackStore() {
     if (Array.isArray(parsed.companyMetrics)) {
       fallbackCompanyMetrics.splice(0, fallbackCompanyMetrics.length, ...parsed.companyMetrics);
     }
+    if (Array.isArray(parsed.sessions)) {
+      fallbackSessions.splice(0, fallbackSessions.length, ...parsed.sessions);
+    }
     if (Array.isArray(parsed.introRequests)) {
       fallbackIntroRequests.splice(0, fallbackIntroRequests.length, ...parsed.introRequests);
       fallbackIntroRequestNextId = fallbackIntroRequests.reduce((max, r) => Math.max(max, r.id + 1), 1);
@@ -188,6 +193,12 @@ function loadPersistedFallbackStore() {
     if (Array.isArray(parsed.processedWebhooks)) {
       fallbackProcessedWebhooks.splice(0, fallbackProcessedWebhooks.length, ...parsed.processedWebhooks);
     }
+    if (Array.isArray(parsed.consultationOutcomes)) {
+      fallbackConsultationOutcomes.splice(0, fallbackConsultationOutcomes.length, ...parsed.consultationOutcomes);
+    }
+    if (Array.isArray(parsed.engagementConsultationOutcomes)) {
+      fallbackEngagementConsultationOutcomes.splice(0, fallbackEngagementConsultationOutcomes.length, ...parsed.engagementConsultationOutcomes);
+    }
   } catch (error) {
     console.warn('Unable to load persisted fallback store. Continuing with seeded data.');
   }
@@ -211,6 +222,7 @@ function persistFallbackStore() {
         meetings,
         feedItems,
         companyMetrics: fallbackCompanyMetrics,
+        sessions: fallbackSessions,
         introRequests: fallbackIntroRequests,
         engagements: fallbackEngagements,
         engagementMessages: fallbackEngagementMessages,
@@ -219,7 +231,9 @@ function persistFallbackStore() {
         engagementOutcomes: fallbackOutcomes,
         notifications: fallbackNotifications,
         paymentEvents: fallbackPaymentEvents,
-        processedWebhooks: fallbackProcessedWebhooks
+        processedWebhooks: fallbackProcessedWebhooks,
+        consultationOutcomes: fallbackConsultationOutcomes,
+        engagementConsultationOutcomes: fallbackEngagementConsultationOutcomes
       }, null, 2),
       'utf8'
     );
@@ -1334,6 +1348,73 @@ export async function getRecommendedVendors(companyId) {
     .sort((a, b) => b.match.score - a.match.score);
 }
 
+export async function upsertConsultationOutcome({ companyId, summary, outcomeType = 'positive', nextActionTitle = '', nextActionOwner = '', nextActionDueDate = '' }) {
+  const normalizedSummary = String(summary || '').trim();
+  const normalizedOutcomeType = ['positive', 'neutral', 'negative'].includes(String(outcomeType || '').toLowerCase())
+    ? String(outcomeType).toLowerCase()
+    : 'positive';
+  const normalizedActionTitle = String(nextActionTitle || '').trim();
+  const normalizedActionOwner = String(nextActionOwner || '').trim();
+  const normalizedActionDueDate = String(nextActionDueDate || '').trim();
+
+  const existingIndex = fallbackConsultationOutcomes.findIndex((entry) => entry.companyId === companyId);
+  const nextEntry = {
+    companyId,
+    summary: normalizedSummary,
+    outcomeType: normalizedOutcomeType,
+    actions: normalizedActionTitle ? [{
+      id: `${companyId}-action-${Date.now()}`,
+      title: normalizedActionTitle,
+      owner: normalizedActionOwner,
+      dueDate: normalizedActionDueDate,
+      status: 'planned'
+    }] : []
+  };
+
+  if (existingIndex >= 0) {
+    fallbackConsultationOutcomes[existingIndex] = nextEntry;
+  } else {
+    fallbackConsultationOutcomes.push(nextEntry);
+  }
+
+  persistFallbackStore();
+  return nextEntry;
+}
+
+export async function upsertEngagementConsultationOutcome({ authUser, engagementId, summary, outcomeType = 'positive', nextActionTitle = '', nextActionOwner = '', nextActionDueDate = '' }) {
+  const workspace = await getEngagementWorkspace(authUser, engagementId);
+  const normalizedSummary = String(summary || '').trim();
+  const normalizedOutcomeType = ['positive', 'neutral', 'negative'].includes(String(outcomeType || '').toLowerCase())
+    ? String(outcomeType).toLowerCase()
+    : 'positive';
+  const normalizedActionTitle = String(nextActionTitle || '').trim();
+  const normalizedActionOwner = String(nextActionOwner || '').trim();
+  const normalizedActionDueDate = String(nextActionDueDate || '').trim();
+
+  const existingIndex = fallbackEngagementConsultationOutcomes.findIndex((entry) => entry.engagementId === engagementId);
+  const nextEntry = {
+    engagementId,
+    summary: normalizedSummary,
+    outcomeType: normalizedOutcomeType,
+    actions: normalizedActionTitle ? [{
+      id: `${engagementId}-action-${Date.now()}`,
+      title: normalizedActionTitle,
+      owner: normalizedActionOwner,
+      dueDate: normalizedActionDueDate,
+      status: 'planned'
+    }] : []
+  };
+
+  if (existingIndex >= 0) {
+    fallbackEngagementConsultationOutcomes[existingIndex] = nextEntry;
+  } else {
+    fallbackEngagementConsultationOutcomes.push(nextEntry);
+  }
+
+  persistFallbackStore();
+  return nextEntry;
+}
+
 export async function getCompanyProfile(companyId) {
   const rankedCompanies = await getRankedCompanies();
   const company = rankedCompanies.find((entry) => entry.id === companyId);
@@ -1344,10 +1425,11 @@ export async function getCompanyProfile(companyId) {
     throw error;
   }
 
-  const [recommendedVendors, companyMeetings, metrics] = await Promise.all([
+  const [recommendedVendors, companyMeetings, metrics, consultationOutcome] = await Promise.all([
     getRecommendedVendors(companyId),
     getMeetings(),
-    getCompanyMetrics(companyId)
+    getCompanyMetrics(companyId),
+    Promise.resolve(fallbackConsultationOutcomes.find((entry) => entry.companyId === companyId) || null)
   ]);
 
   return {
@@ -1355,7 +1437,8 @@ export async function getCompanyProfile(companyId) {
     completion: buildProfileCompletion(company),
     recommendedVendors,
     meetings: companyMeetings.filter((meeting) => meeting.companyId === companyId),
-    metrics
+    metrics,
+    consultationOutcome: consultationOutcome || null
   };
 }
 
@@ -1632,6 +1715,7 @@ async function createSession(user) {
     [token, Number(user.id), expiresAt],
     () => {
       fallbackSessions.push({ token, user, expiresAt });
+      persistFallbackStore();
       return { rowCount: 1, rows: [] };
     }
   );
@@ -1789,7 +1873,7 @@ export async function getEngagementWorkspace(authUser, engagementId) {
     throw error;
   }
 
-  const [messagesResult, milestonesResult, callsResult, outcomeResult, paymentsResult] = await Promise.all([
+  const [messagesResult, milestonesResult, callsResult, outcomeResult, consultationOutcomeResult, paymentsResult] = await Promise.all([
     queryWithFallback(
       `SELECT id, engagement_id, author_user_id, author_name, channel, body, created_at
        FROM engagement_messages WHERE engagement_id = $1 ORDER BY created_at ASC`,
@@ -1877,6 +1961,26 @@ export async function getEngagementWorkspace(authUser, engagementId) {
       }
     ),
     queryWithFallback(
+      `SELECT engagement_id, summary, outcome_type, next_action_title, next_action_owner, next_action_due_date
+       FROM engagement_consultation_outcomes WHERE engagement_id = $1 LIMIT 1`,
+      [engagement.id],
+      () => {
+        const found = fallbackEngagementConsultationOutcomes.find((entry) => entry.engagementId === engagement.id);
+        if (!found) return { rowCount: 0, rows: [] };
+        return {
+          rowCount: 1,
+          rows: [{
+            engagement_id: found.engagementId,
+            summary: found.summary,
+            outcome_type: found.outcomeType,
+            next_action_title: found.actions?.[0]?.title || '',
+            next_action_owner: found.actions?.[0]?.owner || '',
+            next_action_due_date: found.actions?.[0]?.dueDate || '',
+          }]
+        };
+      }
+    ),
+    queryWithFallback(
       `SELECT id, engagement_id, milestone_id, provider, event_type, status, amount, currency, reference, note, created_at
        FROM engagement_payments WHERE engagement_id = $1 ORDER BY created_at DESC`,
       [engagement.id],
@@ -1906,6 +2010,20 @@ export async function getEngagementWorkspace(authUser, engagementId) {
   const milestones = milestonesResult.rows.map(parseMilestoneRow);
   const calls = callsResult.rows.map(parseCallRow);
   const payments = paymentsResult.rows.map(parsePaymentEventRow);
+  const consultationOutcome = consultationOutcomeResult.rowCount
+    ? {
+        engagementId: consultationOutcomeResult.rows[0].engagement_id,
+        summary: consultationOutcomeResult.rows[0].summary,
+        outcomeType: consultationOutcomeResult.rows[0].outcome_type,
+        actions: consultationOutcomeResult.rows[0].next_action_title ? [{
+          id: `${consultationOutcomeResult.rows[0].engagement_id}-action`,
+          title: consultationOutcomeResult.rows[0].next_action_title,
+          owner: consultationOutcomeResult.rows[0].next_action_owner,
+          dueDate: consultationOutcomeResult.rows[0].next_action_due_date,
+          status: 'planned'
+        }] : []
+      }
+    : null;
   const outcome = outcomeResult.rowCount
     ? parseOutcomeRow(outcomeResult.rows[0])
     : {
@@ -1920,7 +2038,7 @@ export async function getEngagementWorkspace(authUser, engagementId) {
         lastUpdatedAt: null,
       };
 
-  return { engagement, messages, milestones, calls, outcome, payments };
+  return { engagement, messages, milestones, calls, outcome, consultationOutcome, payments };
 }
 
 export async function addEngagementMessage({ authUser, engagementId, channel = 'chat', body }) {

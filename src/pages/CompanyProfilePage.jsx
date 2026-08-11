@@ -31,6 +31,16 @@ function CompanyProfilePage({ user, handleLogout, apiUrl, token }) {
   const [editSaving, setEditSaving] = useState(false);
   const [editMessage, setEditMessage] = useState({ type: '', text: '' });
 
+  const [consultationForm, setConsultationForm] = useState({
+    summary: '',
+    outcomeType: 'positive',
+    nextActionTitle: '',
+    nextActionOwner: '',
+    nextActionDueDate: ''
+  });
+  const [consultationSaving, setConsultationSaving] = useState(false);
+  const [consultationMessage, setConsultationMessage] = useState({ type: '', text: '' });
+
   const canEdit = Boolean(
     user
     && (
@@ -137,6 +147,43 @@ function CompanyProfilePage({ user, handleLogout, apiUrl, token }) {
     }
   }
 
+  async function handleConsultationSubmit(event) {
+    event.preventDefault();
+    setConsultationMessage({ type: '', text: '' });
+
+    if (!consultationForm.summary.trim()) {
+      setConsultationMessage({ type: 'error', text: 'Add a brief outcome summary before saving.' });
+      return;
+    }
+
+    setConsultationSaving(true);
+    try {
+      const res = await fetch(`${apiUrl}/api/companies/${companyId}/consultation-outcome`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          summary: consultationForm.summary,
+          outcomeType: consultationForm.outcomeType,
+          nextActionTitle: consultationForm.nextActionTitle,
+          nextActionOwner: consultationForm.nextActionOwner,
+          nextActionDueDate: consultationForm.nextActionDueDate
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save consultation outcome');
+      setConsultationForm({ summary: '', outcomeType: 'positive', nextActionTitle: '', nextActionOwner: '', nextActionDueDate: '' });
+      setConsultationMessage({ type: 'success', text: 'Consultation outcome logged.' });
+      await loadProfile();
+    } catch (err) {
+      setConsultationMessage({ type: 'error', text: err.message });
+    } finally {
+      setConsultationSaving(false);
+    }
+  }
+
   async function handleMetricsSubmit(e) {
     e.preventDefault();
     setMetricsMessage({ type: '', text: '' });
@@ -189,7 +236,7 @@ function CompanyProfilePage({ user, handleLogout, apiUrl, token }) {
           <p>View ranking logic, trust signals, related sessions, and vendor matches for this company profile.</p>
           <div className="hero-actions">
             <Link to="/app" className="action-link">Back to dashboard</Link>
-            <Link to="/marketplace" className="action-link secondary-action">View marketplace</Link>
+            <Link to="/marketplace" className="action-link secondary-action">Explore partnerships</Link>
           </div>
         </div>
         <div className="hero-side-card">
@@ -374,6 +421,87 @@ function CompanyProfilePage({ user, handleLogout, apiUrl, token }) {
                 ))}
               </div>
             </section>
+            <section className="panel">
+              <div className="section-header">
+                <h2>Consultation outcome</h2>
+                <span>Capture the result of a recent collaboration and a concrete next action</span>
+              </div>
+              <form className="metrics-upload-form" onSubmit={handleConsultationSubmit} noValidate>
+                <label>
+                  Outcome summary
+                  <textarea
+                    rows={3}
+                    value={consultationForm.summary}
+                    onChange={(event) => setConsultationForm((current) => ({ ...current, summary: event.target.value }))}
+                    placeholder="Share what changed, what was agreed, and what felt successful."
+                  />
+                </label>
+                <div className="metrics-source-row">
+                  <label htmlFor="outcomeType">Outcome sentiment</label>
+                  <select
+                    id="outcomeType"
+                    value={consultationForm.outcomeType}
+                    onChange={(event) => setConsultationForm((current) => ({ ...current, outcomeType: event.target.value }))}
+                  >
+                    <option value="positive">Positive</option>
+                    <option value="neutral">Neutral</option>
+                    <option value="negative">Negative</option>
+                  </select>
+                </div>
+                <div className="metrics-fields-grid">
+                  <div className="metric-field">
+                    <label htmlFor="nextActionTitle">Next action</label>
+                    <input
+                      id="nextActionTitle"
+                      value={consultationForm.nextActionTitle}
+                      onChange={(event) => setConsultationForm((current) => ({ ...current, nextActionTitle: event.target.value }))}
+                      placeholder="Schedule KPI review"
+                    />
+                  </div>
+                  <div className="metric-field">
+                    <label htmlFor="nextActionOwner">Owner</label>
+                    <input
+                      id="nextActionOwner"
+                      value={consultationForm.nextActionOwner}
+                      onChange={(event) => setConsultationForm((current) => ({ ...current, nextActionOwner: event.target.value }))}
+                      placeholder="Founder"
+                    />
+                  </div>
+                  <div className="metric-field">
+                    <label htmlFor="nextActionDueDate">Due date</label>
+                    <input
+                      id="nextActionDueDate"
+                      type="date"
+                      value={consultationForm.nextActionDueDate}
+                      onChange={(event) => setConsultationForm((current) => ({ ...current, nextActionDueDate: event.target.value }))}
+                    />
+                  </div>
+                </div>
+                {consultationMessage.text && (
+                  <p className={consultationMessage.type === 'error' ? 'error-note' : 'success-note'}>
+                    {consultationMessage.text}
+                  </p>
+                )}
+                <button type="submit" disabled={consultationSaving}>
+                  {consultationSaving ? 'Saving…' : 'Save consultation outcome'}
+                </button>
+              </form>
+              {profile.consultationOutcome && (
+                <div className="meeting-card" style={{ marginTop: '1rem' }}>
+                  <h3>Latest consultation outcome</h3>
+                  <p>{profile.consultationOutcome.summary}</p>
+                  <p className="meeting-host">Outcome: {profile.consultationOutcome.outcomeType}</p>
+                  {profile.consultationOutcome.actions?.length > 0 && (
+                    <ul className="vendor-reasons">
+                      {profile.consultationOutcome.actions.map((action) => (
+                        <li key={action.id}>{action.title} · {action.owner || 'Owner pending'} · {action.dueDate || 'No due date'}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </section>
+
             <section className="panel">
               <div className="section-header">
                 <h2>Upload metrics</h2>

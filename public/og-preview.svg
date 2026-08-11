@@ -1,21 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="PulseBoard preview">
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="CompanyBoard preview">
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#07111f" />
-      <stop offset="45%" stop-color="#0f2a4a" />
-      <stop offset="100%" stop-color="#061022" />
+      <stop offset="0%" stop-color="#050b17" />
+      <stop offset="50%" stop-color="#0b1b34" />
+      <stop offset="100%" stop-color="#071227" />
     </linearGradient>
     <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#53d8ff" />
-      <stop offset="100%" stop-color="#7ef0c1" />
+      <stop offset="0%" stop-color="#19d3ff" />
+      <stop offset="100%" stop-color="#35f4b5" />
     </linearGradient>
   </defs>
   <rect width="1200" height="630" fill="url(#bg)" />
-  <circle cx="1050" cy="120" r="180" fill="#53d8ff" opacity="0.12" />
-  <circle cx="160" cy="530" r="220" fill="#7ef0c1" opacity="0.1" />
-  <text x="90" y="220" fill="#66d9ef" font-family="Segoe UI, Arial, sans-serif" font-size="30" letter-spacing="7">PULSEBOARD NETWORK</text>
-  <text x="90" y="320" fill="#f4f7fb" font-family="Segoe UI, Arial, sans-serif" font-size="72" font-weight="700">Trusted Company</text>
-  <text x="90" y="395" fill="#f4f7fb" font-family="Segoe UI, Arial, sans-serif" font-size="72" font-weight="700">Profiles at Scale</text>
-  <text x="90" y="470" fill="#adc2d9" font-family="Segoe UI, Arial, sans-serif" font-size="34">Selective metrics sharing, partner intelligence, and premium marketplace discovery.</text>
-  <rect x="90" y="515" width="450" height="12" rx="6" fill="url(#accent)" />
+    <circle cx="1040" cy="100" r="180" fill="#1ad7ff" opacity="0.12" />
+    <circle cx="140" cy="560" r="210" fill="#32f0bd" opacity="0.09" />
+    <rect x="78" y="62" width="56" height="56" rx="14" fill="#0b203e" stroke="#2a4a73" />
+    <path d="M94 90c0-10 8-18 18-18 6 0 10 2 14 5l-5 6c-3-2-5-3-9-3-7 0-12 5-12 10s5 11 12 11c4 0 7-2 10-4l4 6c-4 4-9 6-15 6-11 0-17-8-17-19z" fill="url(#accent)" />
+    <text x="152" y="102" fill="#e9f0fb" font-family="Segoe UI, Arial, sans-serif" font-size="34" font-weight="700">CompanyBoard</text>
+    <text x="82" y="238" fill="#f4f8ff" font-family="Segoe UI, Arial, sans-serif" font-size="66" font-weight="700">Verified signal for</text>
+    <text x="82" y="316" fill="#f4f8ff" font-family="Segoe UI, Arial, sans-serif" font-size="66" font-weight="700">private company partnerships.</text>
+    <text x="82" y="380" fill="#a4b7cd" font-family="Segoe UI, Arial, sans-serif" font-size="30">Control visibility. Prove momentum. Match with the right partners.</text>
+    <rect x="82" y="440" width="322" height="54" rx="14" fill="url(#accent)" />
+    <text x="128" y="476" fill="#03111f" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700">Claim Your Profile</text>
 </svg>

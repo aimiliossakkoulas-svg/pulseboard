@@ -16,6 +16,10 @@ import {
 } from './data/networkData';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const USER_STORAGE_KEY = 'companyboard-user';
+const TOKEN_STORAGE_KEY = 'companyboard-token';
+const LEGACY_USER_STORAGE_KEY = 'pulseboard-user';
+const LEGACY_TOKEN_STORAGE_KEY = 'pulseboard-token';
 
 function App() {
   const navigate = useNavigate();
@@ -37,12 +41,42 @@ function App() {
   const [previewFeedItems, setPreviewFeedItems] = useState(fallbackFeed);
   const [user, setUser] = useState(() => {
     if (typeof window === 'undefined') return null;
-    const savedUser = window.localStorage.getItem('pulseboard-user');
-    return savedUser ? JSON.parse(savedUser) : null;
+    try {
+      const savedUser = window.localStorage.getItem(USER_STORAGE_KEY);
+      if (savedUser) {
+        return JSON.parse(savedUser);
+      }
+
+      const legacyUser = window.localStorage.getItem(LEGACY_USER_STORAGE_KEY);
+      if (!legacyUser) {
+        return null;
+      }
+
+      const parsedLegacyUser = JSON.parse(legacyUser);
+      window.localStorage.setItem(USER_STORAGE_KEY, legacyUser);
+      window.localStorage.removeItem(LEGACY_USER_STORAGE_KEY);
+      return parsedLegacyUser;
+    } catch {
+      window.localStorage.removeItem(USER_STORAGE_KEY);
+      window.localStorage.removeItem(LEGACY_USER_STORAGE_KEY);
+      return null;
+    }
   });
   const [token, setToken] = useState(() => {
     if (typeof window === 'undefined') return '';
-    return window.localStorage.getItem('pulseboard-token') || '';
+    const savedToken = window.localStorage.getItem(TOKEN_STORAGE_KEY);
+    if (savedToken) {
+      return savedToken;
+    }
+
+    const legacyToken = window.localStorage.getItem(LEGACY_TOKEN_STORAGE_KEY);
+    if (!legacyToken) {
+      return '';
+    }
+
+    window.localStorage.setItem(TOKEN_STORAGE_KEY, legacyToken);
+    window.localStorage.removeItem(LEGACY_TOKEN_STORAGE_KEY);
+    return legacyToken;
   });
   const [authMode, setAuthMode] = useState('login');
   const [authForm, setAuthForm] = useState({
@@ -64,31 +98,31 @@ function App() {
 
     const pageMeta = {
       '/': {
-        title: 'PulseBoard | Trusted Company Network',
-        description: 'Discover ranked company profiles, selective metrics sharing, and premium partner discovery on PulseBoard.'
+        title: 'CompanyBoard | Trusted Company Network',
+        description: 'Discover ranked company profiles, selective metrics sharing, and premium partner discovery on CompanyBoard.'
       },
       '/login': {
-        title: 'Sign In | PulseBoard',
-        description: 'Sign in to PulseBoard to access trusted company profiles and private network insights.'
+        title: 'Sign In | CompanyBoard',
+        description: 'Sign in to CompanyBoard to access trusted company profiles and private network insights.'
       },
       '/signup': {
-        title: 'Create Account | PulseBoard',
-        description: 'Join PulseBoard to share company metrics selectively and connect with vetted growth partners.'
+        title: 'Create Account | CompanyBoard',
+        description: 'Join CompanyBoard to share company metrics selectively and connect with vetted growth partners.'
       },
       '/app': {
-        title: 'Dashboard | PulseBoard',
-        description: 'Track company profiles, peer activity, and advisory opportunities in your PulseBoard dashboard.'
+        title: 'Dashboard | CompanyBoard',
+        description: 'Track company profiles, peer activity, and advisory opportunities in your CompanyBoard dashboard.'
       },
       '/marketplace': {
-        title: 'Marketplace | PulseBoard',
-        description: 'Browse premium vendors and growth operators in the PulseBoard marketplace.'
+        title: 'Marketplace | CompanyBoard',
+        description: 'Browse premium vendors and growth operators in the CompanyBoard marketplace.'
       },
       '/company': {
-        title: 'Company Profile | PulseBoard',
-        description: 'Inspect company trust signals, ranking logic, and matched vendors on PulseBoard.'
+        title: 'Company Profile | CompanyBoard',
+        description: 'Inspect company trust signals, ranking logic, and matched vendors on CompanyBoard.'
       },
       '/onboarding': {
-        title: 'Company Onboarding | PulseBoard',
+        title: 'Company Onboarding | CompanyBoard',
         description: 'Create your company profile and submit baseline metrics for trusted ranking.'
       }
     };
@@ -135,6 +169,8 @@ function App() {
   }, [location.pathname]);
 
   useEffect(() => {
+    let isActive = true;
+
     async function hydrateSession() {
       if (!token) {
         return;
@@ -150,16 +186,34 @@ function App() {
         }
 
         const data = await response.json();
-        setUser(data.user);
+        if (!isActive) {
+          return;
+        }
+
+        const nextUser = data?.user || null;
+        setUser(nextUser);
+        if (nextUser) {
+          window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(nextUser));
+        }
       } catch (error) {
+        if (!isActive) {
+          return;
+        }
+
         setUser(null);
         setToken('');
-        window.localStorage.removeItem('pulseboard-user');
-        window.localStorage.removeItem('pulseboard-token');
+        window.localStorage.removeItem(USER_STORAGE_KEY);
+        window.localStorage.removeItem(TOKEN_STORAGE_KEY);
+        window.localStorage.removeItem(LEGACY_USER_STORAGE_KEY);
+        window.localStorage.removeItem(LEGACY_TOKEN_STORAGE_KEY);
       }
     }
 
     hydrateSession();
+
+    return () => {
+      isActive = false;
+    };
   }, [token]);
 
   async function handleAuthSubmit(event) {
@@ -191,11 +245,19 @@ function App() {
         throw new Error(data.error || 'Authentication failed');
       }
 
-      setUser(data.user);
-      setToken(data.token || '');
-      window.localStorage.setItem('pulseboard-user', JSON.stringify(data.user));
-      if (data.token) {
-        window.localStorage.setItem('pulseboard-token', data.token);
+      const nextUser = data?.user || null;
+      const nextToken = data?.token || '';
+      setUser(nextUser);
+      setToken(nextToken);
+      if (nextUser) {
+        window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(nextUser));
+      } else {
+        window.localStorage.removeItem(USER_STORAGE_KEY);
+      }
+      if (nextToken) {
+        window.localStorage.setItem(TOKEN_STORAGE_KEY, nextToken);
+      } else {
+        window.localStorage.removeItem(TOKEN_STORAGE_KEY);
       }
       setAuthForm({
         name: '',
@@ -230,8 +292,10 @@ function App() {
 
     setUser(null);
     setToken('');
-    window.localStorage.removeItem('pulseboard-user');
-    window.localStorage.removeItem('pulseboard-token');
+    window.localStorage.removeItem(USER_STORAGE_KEY);
+    window.localStorage.removeItem(TOKEN_STORAGE_KEY);
+    window.localStorage.removeItem(LEGACY_USER_STORAGE_KEY);
+    window.localStorage.removeItem(LEGACY_TOKEN_STORAGE_KEY);
     setAuthMessage('You have been signed out.');
     navigate('/');
   }
@@ -239,8 +303,10 @@ function App() {
   function handleSessionExpired(message = 'Your session expired. Please sign in again.') {
     setUser(null);
     setToken('');
-    window.localStorage.removeItem('pulseboard-user');
-    window.localStorage.removeItem('pulseboard-token');
+    window.localStorage.removeItem(USER_STORAGE_KEY);
+    window.localStorage.removeItem(TOKEN_STORAGE_KEY);
+    window.localStorage.removeItem(LEGACY_USER_STORAGE_KEY);
+    window.localStorage.removeItem(LEGACY_TOKEN_STORAGE_KEY);
     setAuthMessage(message);
     navigate('/login');
   }

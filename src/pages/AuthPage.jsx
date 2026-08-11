@@ -50,8 +50,8 @@ function AuthPage({ mode, authForm, setAuthForm, authMessage, handleAuthSubmit, 
     <div className="auth-page auth-page-facebook">
       <div className="auth-page-shell">
         <section className="auth-page-social-panel auth-fb-left" aria-label="Network activity preview">
-          <p className="auth-fb-logo">PulseBoard</p>
-          <h1 className="auth-social-title">PulseBoard helps you connect and share with trusted operators.</h1>
+          <p className="auth-fb-logo">CompanyBoard</p>
+          <h1 className="auth-social-title">CompanyBoard helps you connect and share with trusted operators.</h1>
           <p className="auth-brand-tagline">See what your peer network is shipping, what metrics are moving, and who is ready to collaborate right now.</p>
 
           <div className="auth-fb-graphic" aria-hidden="true">
@@ -67,7 +67,7 @@ function AuthPage({ mode, authForm, setAuthForm, authMessage, handleAuthSubmit, 
         </section>
 
         <section className="auth-page-card auth-fb-card" aria-label={isLogin ? 'Sign in panel' : 'Create account panel'}>
-          <h2 className="auth-page-title">{isLogin ? 'Log in to PulseBoard' : 'Create a new account'}</h2>
+          <h2 className="auth-page-title">{isLogin ? 'Log in to CompanyBoard' : 'Create a new account'}</h2>
 
           <form className="auth-page-form" onSubmit={handleAuthSubmit} noValidate>
             {!isLogin && (

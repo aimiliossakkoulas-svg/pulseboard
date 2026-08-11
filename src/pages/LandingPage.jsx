@@ -52,9 +52,9 @@ function LandingPage({ heroStats, previewFeedItems }) {
         <div className="section-header">
           <div>
             <p className="eyebrow">Network rankings</p>
-            <h2 className="section-title">Top profiles in the network</h2>
+            <h2 className="section-title">High-signal profiles worth knowing</h2>
           </div>
-          <span className="section-meta">Updated in real time based on verified signal</span>
+          <span className="section-meta">Updated in real time from verified signal and operator context</span>
         </div>
         <div className="lp-company-grid">
           {PREVIEW_COMPANIES.map((c) => (
@@ -88,8 +88,8 @@ function LandingPage({ heroStats, previewFeedItems }) {
       <section className="panel preview-shell" aria-label="Network activity">
         <div className="preview-snapshot">
           <p className="eyebrow">Live activity</p>
-          <h2 className="section-title">What the network is doing right now</h2>
-          <p>Members share milestones, open meetings, and selective metrics in real time. You control what you see and who sees you.</p>
+          <h2 className="section-title">Where trust turns into momentum</h2>
+          <p>Members share milestones, open meetings, and selective metrics in real time. The network becomes more useful when the right people can see the right signal.</p>
         </div>
         <div className="preview-feed">
           {previewFeedItems.map((item) => (
@@ -105,21 +105,21 @@ function LandingPage({ heroStats, previewFeedItems }) {
       </section>
 
       {/* Vision narrative */}
-      <section className="panel narrative-grid" aria-label="Why PulseBoard">
+      <section className="panel narrative-grid" aria-label="Why CompanyBoard">
         <article className="narrative-card">
           <p className="eyebrow">The problem</p>
-          <h3>Most business networks reward noise, not verified performance.</h3>
+          <h3>Most networks reward noise instead of fit.</h3>
           <p>
             Founders and operators are forced to choose between oversharing publicly or staying invisible.
-            PulseBoard keeps high-signal collaboration private until trust is established.
+            CompanyBoard keeps high-signal collaboration private until trust is established and the right introduction is possible.
           </p>
         </article>
         <article className="narrative-card">
           <p className="eyebrow">The shift</p>
-          <h3>Selective visibility turns profile quality into a compounding advantage.</h3>
+          <h3>Selective visibility turns profile quality into real opportunity.</h3>
           <p>
-            Share growth metrics with approved peers, run focused sessions, and unlock premium partner access
-            based on reputation and real operating context — not follower count.
+            Share growth metrics with approved peers, run focused sessions, and unlock partner access
+            based on reputation, fit, and real operating context — not follower count.
           </p>
         </article>
       </section>
@@ -145,7 +145,7 @@ function LandingPage({ heroStats, previewFeedItems }) {
         <div className="section-header">
           <div>
             <p className="eyebrow">Membership</p>
-            <h2 className="section-title">Choose how you show up</h2>
+            <h2 className="section-title">Choose how you make an introduction</h2>
           </div>
           <span className="section-meta">Upgrade or downgrade at any time</span>
         </div>
@@ -175,21 +175,21 @@ function LandingPage({ heroStats, previewFeedItems }) {
       </section>
 
       {/* How it works */}
-      <section className="panel steps-grid" aria-label="How PulseBoard works">
+      <section className="panel steps-grid" aria-label="How CompanyBoard works">
         <article className="step-card">
           <span className="step-index">01</span>
-          <h3>Build your profile</h3>
-          <p>Add company context, growth priorities, and optional benchmark metrics to establish your presence.</p>
+          <h3>Build a credible profile</h3>
+          <p>Add company context, growth priorities, and optional benchmark metrics so the right partners can understand your momentum.</p>
         </article>
         <article className="step-card">
           <span className="step-index">02</span>
-          <h3>Control your visibility</h3>
+          <h3>Control who sees what</h3>
           <p>Decide exactly when your performance data is visible to peers, vendors, and the wider network.</p>
         </article>
         <article className="step-card">
           <span className="step-index">03</span>
-          <h3>Unlock partnerships</h3>
-          <p>Get matched with execution partners and advisors based on verified signal, not cold outreach.</p>
+          <h3>Unlock the right partnerships</h3>
+          <p>Get matched with execution partners and advisors based on verified signal, fit, and real momentum.</p>
         </article>
       </section>
 
@@ -197,8 +197,8 @@ function LandingPage({ heroStats, previewFeedItems }) {
       <section className="panel final-cta" aria-label="Call to action">
         <div>
           <p className="eyebrow">Ready to join?</p>
-          <h3>Build your trusted profile and access the private growth network.</h3>
-          <p>Start free. Upgrade your visibility and partner access as your profile matures.</p>
+          <h3>Build a profile that opens the right doors.</h3>
+          <p>Start free. Upgrade your visibility and partner access as your profile matures and your network grows.</p>
         </div>
         <div className="hero-actions">
           <button type="button" className="cta-primary" onClick={() => navigate('/signup')}>Join the network</button>

@@ -44,8 +44,20 @@ function DashboardPage({
   const [callScheduledAt, setCallScheduledAt] = useState('');
   const [callSaving, setCallSaving] = useState(false);
   const [outcomeSaving, setOutcomeSaving] = useState(false);
+  const [consultationSaving, setConsultationSaving] = useState(false);
+  const [consultationMessage, setConsultationMessage] = useState({ type: '', text: '' });
+  const [consultationForm, setConsultationForm] = useState({
+    summary: '',
+    outcomeType: 'positive',
+    nextActionTitle: '',
+    nextActionOwner: '',
+    nextActionDueDate: ''
+  });
   const [notifications, setNotifications] = useState([]);
   const [notificationError, setNotificationError] = useState('');
+  const [recentOutcomes, setRecentOutcomes] = useState([]);
+  const [recentOutcomesLoading, setRecentOutcomesLoading] = useState(false);
+  const [recentOutcomesError, setRecentOutcomesError] = useState('');
   const [checkoutLoadingMilestoneId, setCheckoutLoadingMilestoneId] = useState(null);
   const [checkoutMessage, setCheckoutMessage] = useState('');
   const [outcomeForm, setOutcomeForm] = useState({
@@ -97,6 +109,48 @@ function DashboardPage({
 
     loadNotifications();
   }, [token, apiUrl]);
+
+  async function loadRecentOutcomes() {
+    if (!token || !apiUrl || engagements.length === 0) {
+      setRecentOutcomes([]);
+      return;
+    }
+
+    setRecentOutcomesLoading(true);
+    setRecentOutcomesError('');
+
+    try {
+      const outcomes = await Promise.all(
+        engagements.slice(0, 4).map(async (engagement) => {
+          try {
+            const response = await fetch(`${apiUrl}/api/engagements/${engagement.id}/workspace`, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            if (!response.ok) return null;
+            const data = await response.json();
+            if (!data.consultationOutcome) return null;
+            return {
+              engagementId: engagement.id,
+              title: engagement.title,
+              ...data.consultationOutcome,
+            };
+          } catch {
+            return null;
+          }
+        })
+      );
+
+      setRecentOutcomes(outcomes.filter(Boolean));
+    } catch (error) {
+      setRecentOutcomesError(error.message || 'Unable to load recent outcomes');
+    } finally {
+      setRecentOutcomesLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadRecentOutcomes();
+  }, [token, apiUrl, engagements]);
 
   useEffect(() => {
     async function loadWorkspace() {
@@ -310,6 +364,43 @@ function DashboardPage({
     }
   }
 
+  async function handleSaveConsultationOutcome() {
+    if (!selectedEngagementId) return;
+    setConsultationMessage({ type: '', text: '' });
+
+    if (!consultationForm.summary.trim()) {
+      setConsultationMessage({ type: 'error', text: 'Add a brief consultation outcome before saving.' });
+      return;
+    }
+
+    setConsultationSaving(true);
+    try {
+      const response = await fetch(`${apiUrl}/api/engagements/${selectedEngagementId}/consultation-outcome`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          summary: consultationForm.summary,
+          outcomeType: consultationForm.outcomeType,
+          nextActionTitle: consultationForm.nextActionTitle,
+          nextActionOwner: consultationForm.nextActionOwner,
+          nextActionDueDate: consultationForm.nextActionDueDate
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to save consultation outcome');
+      setConsultationForm({ summary: '', outcomeType: 'positive', nextActionTitle: '', nextActionOwner: '', nextActionDueDate: '' });
+      setConsultationMessage({ type: 'success', text: 'Consultation outcome saved.' });
+      await Promise.all([refreshWorkspace(), loadRecentOutcomes()]);
+    } catch (error) {
+      setConsultationMessage({ type: 'error', text: error.message || 'Unable to save consultation outcome' });
+    } finally {
+      setConsultationSaving(false);
+    }
+  }
+
   async function handleCreateCheckout(milestoneId) {
     if (!selectedEngagementId) return;
     setCheckoutLoadingMilestoneId(milestoneId);
@@ -362,13 +453,13 @@ function DashboardPage({
       <a className="skip-link" href="#dashboard-main-content">Skip to main content</a>
       <header className="hero hero-with-actions">
         <div className="hero-copy">
-          <p className="eyebrow">PulseBoard network</p>
-          <h1>Trusted company profiles, expert reviews, and selective performance sharing.</h1>
-          <p>Connect with founders, agents, and vendors in a private business network where visibility is earned and metrics stay permission-based.</p>
+          <p className="eyebrow">CompanyBoard network</p>
+          <h1>Turn visibility into real collaboration.</h1>
+          <p>Discover credible companies, connect with the right people, and build partnerships grounded in trust, fit, and shared value.</p>
           <div className="hero-actions">
             <button type="button" onClick={() => { setActiveSection('profiles'); document.getElementById('profiles-section')?.scrollIntoView({ behavior: 'smooth' }); }}>Explore profiles</button>
             <Link to="/onboarding" className="action-link">Onboard company</Link>
-            <Link to="/marketplace" className="action-link secondary-action" onClick={() => setActiveSection('marketplace')}>View marketplace</Link>
+            <Link to="/marketplace" className="action-link secondary-action" onClick={() => setActiveSection('marketplace')}>Explore partnerships</Link>
           </div>
           <div className="hero-stats">
             {heroStats.map((stat) => (
@@ -620,6 +711,40 @@ function DashboardPage({
       <section className="panel">
         <div className="section-header">
           <div>
+            <p className="eyebrow">Recent outcomes</p>
+            <h2 className="section-title">Latest consultation notes</h2>
+          </div>
+          <span className="section-meta">Visible from the main dashboard</span>
+        </div>
+        {recentOutcomesLoading && <p>Loading recent outcomes...</p>}
+        {recentOutcomesError && <p className="error-note">{recentOutcomesError}</p>}
+        {!recentOutcomesLoading && recentOutcomes.length === 0 && <p>No consultation outcomes yet.</p>}
+        <div className="meeting-list">
+          {recentOutcomes.map((outcome) => (
+            <article key={`${outcome.engagementId}-${outcome.summary}`} className="meeting-card">
+              <div>
+                <h3>#{outcome.engagementId} {outcome.title}</h3>
+                <p>{outcome.summary}</p>
+                <p className="meeting-host">Outcome: {outcome.outcomeType}</p>
+              </div>
+              <div>
+                <span className="pill pill-neutral">{outcome.actions?.[0]?.dueDate ? `Due ${outcome.actions[0].dueDate}` : 'Follow-up planned'}</span>
+                {outcome.actions?.length > 0 && (
+                  <ul className="vendor-reasons" style={{ marginTop: '0.75rem' }}>
+                    {outcome.actions.map((action) => (
+                      <li key={action.id}>{action.title} · {action.owner || 'Owner pending'}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="section-header">
+          <div>
             <p className="eyebrow">Consulting workspace</p>
             <h2 className="section-title">Engagement communication and outcomes</h2>
           </div>
@@ -746,6 +871,54 @@ function DashboardPage({
               <button type="button" onClick={handleSaveOutcome} disabled={outcomeSaving}>
                 {outcomeSaving ? 'Saving...' : 'Save outcome snapshot'}
               </button>
+            </article>
+
+            <article className="engagement-card">
+              <h3>Consultation outcome</h3>
+              <label>
+                Summary
+                <textarea
+                  rows={3}
+                  value={consultationForm.summary}
+                  onChange={(e) => setConsultationForm((current) => ({ ...current, summary: e.target.value }))}
+                  placeholder="Summarize the outcome, agreement, and next step"
+                />
+              </label>
+              <label>
+                Outcome sentiment
+                <select
+                  value={consultationForm.outcomeType}
+                  onChange={(e) => setConsultationForm((current) => ({ ...current, outcomeType: e.target.value }))}
+                >
+                  <option value="positive">Positive</option>
+                  <option value="neutral">Neutral</option>
+                  <option value="negative">Negative</option>
+                </select>
+              </label>
+              <div className="engagement-outcome-grid">
+                <label>Next action<input value={consultationForm.nextActionTitle} onChange={(e) => setConsultationForm((current) => ({ ...current, nextActionTitle: e.target.value }))} placeholder="Schedule KPI review" /></label>
+                <label>Owner<input value={consultationForm.nextActionOwner} onChange={(e) => setConsultationForm((current) => ({ ...current, nextActionOwner: e.target.value }))} placeholder="Founder" /></label>
+                <label>Due date<input type="date" value={consultationForm.nextActionDueDate} onChange={(e) => setConsultationForm((current) => ({ ...current, nextActionDueDate: e.target.value }))} /></label>
+              </div>
+              {consultationMessage.text && (
+                <p className={consultationMessage.type === 'error' ? 'error-note' : 'success-note'}>{consultationMessage.text}</p>
+              )}
+              <button type="button" onClick={handleSaveConsultationOutcome} disabled={consultationSaving || !consultationForm.summary.trim()}>
+                {consultationSaving ? 'Saving...' : 'Save consultation outcome'}
+              </button>
+              {workspace.consultationOutcome && (
+                <div className="meeting-card" style={{ marginTop: '1rem' }}>
+                  <h3>Latest note</h3>
+                  <p>{workspace.consultationOutcome.summary}</p>
+                  {workspace.consultationOutcome.actions?.length > 0 && (
+                    <ul className="vendor-reasons">
+                      {workspace.consultationOutcome.actions.map((action) => (
+                        <li key={action.id}>{action.title} · {action.owner || 'Owner pending'} · {action.dueDate || 'No due date'}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
             </article>
 
             <article className="engagement-card">

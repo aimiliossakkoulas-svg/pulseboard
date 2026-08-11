@@ -376,4 +376,25 @@ test('auth guards and protected writes work across API endpoints', async (t) => 
   const companyMetricsData = await getJson(companyMetrics);
   assert.ok(Array.isArray(companyMetricsData));
   assert.ok(companyMetricsData.some((entry) => entry.sourceType === 'quickbooks'));
+
+  const consultationOutcome = await fetch(`${baseUrl}/api/companies/${onboardingData.company.id}/consultation-outcome`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${signupData.token}`
+    },
+    body: JSON.stringify({
+      summary: 'Consultation delivered with a clear follow-up plan.',
+      outcomeType: 'positive',
+      nextActionTitle: 'Schedule next-quarter KPI review',
+      nextActionOwner: 'Founder',
+      nextActionDueDate: '2026-09-15'
+    })
+  });
+  assert.equal(consultationOutcome.status, 201);
+  const consultationOutcomeData = await getJson(consultationOutcome);
+  assert.equal(consultationOutcomeData.companyId, onboardingData.company.id);
+  assert.equal(consultationOutcomeData.outcome.summary, 'Consultation delivered with a clear follow-up plan.');
+  assert.ok(Array.isArray(consultationOutcomeData.actions));
+  assert.equal(consultationOutcomeData.actions[0].title, 'Schedule next-quarter KPI review');
 });

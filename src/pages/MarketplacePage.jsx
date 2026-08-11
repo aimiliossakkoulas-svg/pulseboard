@@ -157,8 +157,8 @@ function MarketplacePage({ user, vendors, companies, token, apiUrl, handleLogout
       <header className="hero hero-with-actions">
         <div className="hero-copy">
           <p className="eyebrow">Marketplace</p>
-          <h1>Vendors that move the pipeline, not just the conversation.</h1>
-          <p>Every partner is matched on fit, delivery record, and sector compatibility. See projected pipeline impact before you connect.</p>
+          <h1>Find the right partners for growth, delivery, and execution.</h1>
+          <p>Every partner is matched on fit, trust, delivery record, and sector compatibility. See projected impact before you connect.</p>
           <div className="hero-actions">
             <Link to="/app" className="action-link">Back to dashboard</Link>
           </div>
